@@ -66,7 +66,7 @@ class OpenAIService(private val apiKey: String) {
                                                 "attack": 9,
                                                 "defense": 2,
                                                 "rarity": "UNCOMMON",
-                                                "description": "Short mystical flavor text (max 60 characters for 2-line display)"
+                                                "description": "Mystical flavor text. Legend says he can outrun time itself."
                                             }
                                             
                                             RARITY GUIDELINES (Very Important):
@@ -147,8 +147,39 @@ class OpenAIService(private val apiKey: String) {
                                             
                                             CREATE VARIETY! Avoid always using 4-6. Be bold with 1-3 and 8-10!
                                             
-                                            Be honest about rarity - don't inflate it! Most images should be COMMON or UNCOMMON.
-                                            Only use LEGENDARY for truly spectacular, once-in-a-lifetime images.
+                                            DESCRIPTION GUIDELINES (Very Important!):
+                                            Create a 2-sentence description with exactly this format:
+                                            
+                                            SENTENCE 1: Short mystical/atmospheric flavor text (20-30 characters)
+                                            SENTENCE 2: Funny hyperbolic punchline about the image content (30-40 characters)
+                                            
+                                            PUNCHLINE EXAMPLES:
+                                            • Someone smoking: "This smoke can cover your family assurance."
+                                            • Someone on bicycle: "Legend says he can enter the toll."
+                                            • Someone cooking: "His recipes can feed entire villages."
+                                            • Someone with phone: "Can connect to networks in other dimensions."
+                                            • Someone sleeping: "Dreams so deep they create new realities."
+                                            • Someone driving: "GPS gets confused by his navigation skills."
+                                            • Someone eating: "Appetite so vast it threatens local ecosystems."
+                                            • Someone dancing: "Moves so smooth they defy physics laws."
+                                            • Cat sitting: "Judges your life choices with cosmic wisdom."
+                                            • Dog running: "Speed breaks the sound barrier regularly."
+                                            
+                                            PUNCHLINE STYLE:
+                                            • Use exaggerated claims and hyperbole
+                                            • Reference everyday situations in absurd ways
+                                            • "Legend says...", "Rumor has it...", "Scientists believe..."
+                                            • Make it sound like a ridiculous superpower or achievement
+                                            • Keep it short, punchy, and immediately funny
+                                            • Base it on what's actually happening in the image
+                                            
+                                            TOTAL LENGTH: Keep both sentences under 80 characters total for proper display!
+                                            
+                                            FINAL REMINDERS:
+                                            • Be honest about rarity - don't inflate it! Most images should be COMMON or UNCOMMON
+                                            • Only use LEGENDARY for truly spectacular, once-in-a-lifetime images
+                                            • Attack 8+ should be RARE or higher, not UNCOMMON
+                                            • Make the punchline funny and based on what's actually in the image
                                             
                                             Return ONLY the JSON, no other text.
                                         """.trimIndent()
