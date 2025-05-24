@@ -23,13 +23,14 @@ class OpenAIService(private val apiKey: String) {
         }
     }
 
-    // Natural rarity distribution (matches typical TCG distributions)
+    // Increased EPIC chances - better balance
     companion object {
         private val RARITY_DISTRIBUTION = mapOf(
-            CardRarity.COMMON to 60,      // 60%
+            CardRarity.COMMON to 50,      // 50%
             CardRarity.UNCOMMON to 25,    // 25%
-            CardRarity.RARE to 10,        // 10%
-            CardRarity.LEGENDARY to 5     // 5%
+            CardRarity.RARE to 15,        // 15%
+            CardRarity.EPIC to 8,         // 8% - Increased from 4%
+            CardRarity.LEGENDARY to 2     // 2% - Slightly increased
         )
     }
 
@@ -62,55 +63,87 @@ class OpenAIService(private val apiKey: String) {
                                             Analyze this image and create a trading card from it. Return ONLY a valid JSON object with these exact fields:
                                             {
                                                 "name": "A creative name for the card (max 25 chars)",
-                                                "attack": 7,
-                                                "defense": 3,
-                                                "rarity": "COMMON",
+                                                "attack": 9,
+                                                "defense": 2,
+                                                "rarity": "UNCOMMON",
                                                 "description": "Short mystical flavor text (max 60 characters for 2-line display)"
                                             }
                                             
                                             RARITY GUIDELINES (Very Important):
                                             Choose rarity based on SOCIAL VALUE, humor, meme potential, and uniqueness - not just artistic quality!
                                             
-                                            • COMMON (60% of cards): Simple, everyday objects, basic solo photos, regular items, plain backgrounds
+                                            • COMMON (50% of cards): Simple, everyday objects, basic solo photos, regular items, plain backgrounds
                                               Examples: single coffee cup, basic selfie, plain landscape, simple object photo
                                             
                                             • UNCOMMON (25% of cards): Interesting content with social or humorous elements, group activities, expressive moments
                                               Examples: group selfies, funny facial expressions, interesting poses, social gatherings, cool outfits
                                             
-                                            • RARE (10% of cards): HIGH MEME POTENTIAL, very funny moments, epic group photos, dramatic reactions, special occasions
-                                              Examples: hilarious facial expressions, perfect reaction faces, epic group shots, funny situations, dramatic poses, special events, amazing memes
+                                            • RARE (15% of cards): HIGH MEME POTENTIAL, very funny moments, good group photos, dramatic reactions, special occasions
+                                              Examples: hilarious facial expressions, good reaction faces, nice group shots, funny situations, dramatic poses, special events
                                             
-                                            • LEGENDARY (5% of cards): ULTIMATE MEME MATERIAL, absolutely hilarious, legendary group moments, perfect reaction images, iconic community content
-                                              Examples: legendary funny faces, epic fail moments, perfect meme templates, iconic group photos, absolutely hilarious situations, unforgettable reactions
+                                            • EPIC (7% of cards): EXCEPTIONAL CONTENT, amazing meme material, epic group moments, incredible reactions, outstanding community content
+                                              Examples: legendary funny faces, epic fail moments, perfect group dynamics, incredible expressions, amazing community memories, viral-worthy content
                                             
-                                            STAT GUIDELINES (Use Full 1-10 Range!):
-                                            Be bold with stats! Use the ENTIRE 1-10 range for variety and excitement:
+                                            • LEGENDARY (3% of cards): ULTIMATE PERFECTION, once-in-a-lifetime moments, absolute peak meme content, iconic masterpieces
+                                              Examples: perfect meme templates, historic group photos, absolutely legendary reactions, life-changing moments, ultimate viral content
+                                            
+                                            STAT GUIDELINES (MUST Use Full 1-10 Range!):
+                                            STOP being conservative! Use EXTREME stats for excitement and variety!
+                                            DO NOT default to middle values like 4-6. Be BOLD with 1-3 and 8-10!
                                             
                                             • ATTACK (1-10): Base on dynamic/aggressive/energetic elements
-                                              - 1-3: Gentle, peaceful, static objects (flowers, sleeping cats, calm scenes)
-                                              - 4-6: Moderate energy (people walking, cars, normal activities)  
-                                              - 7-8: High energy (sports, action, dramatic poses, powerful animals)
-                                              - 9-10: EXTREME power (explosions, intense action, apex predators, warriors)
+                                              - 1-2: Extremely gentle/peaceful (sleeping babies, flowers, meditation, calm water)
+                                              - 3-4: Low energy (reading, sitting, passive objects)
+                                              - 5-6: Moderate energy (walking, normal activities, regular movement)  
+                                              - 7-8: High energy (running, sports, action poses, excited expressions)
+                                              - 9-10: MAXIMUM POWER (explosions, roaring animals, intense action, warriors, lightning)
                                             
                                             • DEFENSE (1-10): Base on protective/sturdy/resilient elements  
-                                              - 1-3: Fragile, delicate (glass, bubbles, thin materials, vulnerability)
-                                              - 4-6: Normal durability (people, everyday objects, standard materials)
-                                              - 7-8: Very sturdy (armor, shields, strong buildings, protective poses)
-                                              - 9-10: UNBREAKABLE (fortresses, mountains, ultimate protection)
+                                              - 1-2: Extremely fragile (soap bubbles, glass, paper, delicate flowers)
+                                              - 3-4: Fragile (thin materials, vulnerable poses, light objects)
+                                              - 5-6: Normal durability (people, everyday objects, standard materials)
+                                              - 7-8: Very sturdy (thick walls, armor, strong poses, solid buildings)
+                                              - 9-10: UNBREAKABLE (mountains, fortresses, tanks, ultimate protection)
                                             
-                                            STAT VARIETY EXAMPLES:
-                                            • Glass sculpture: ATK 2, DEF 1 (beautiful but fragile)
-                                            • Fierce tiger: ATK 9, DEF 6 (pure aggression)  
-                                            • Castle wall: ATK 3, DEF 10 (defensive powerhouse)
-                                            • Lightning bolt: ATK 10, DEF 2 (ultimate attack, no defense)
-                                            • Sleeping baby: ATK 1, DEF 8 (peaceful but protected)
-                                            • Racing car: ATK 8, DEF 4 (speed over safety)
+                                            REQUIRED STAT VARIETY EXAMPLES:
+                                            • Soap bubble: ATK 1, DEF 1 (delicate perfection)
+                                            • Sleeping cat: ATK 1, DEF 6 (peaceful but protected)
+                                            • Glass art: ATK 2, DEF 1 (beautiful but fragile)
+                                            • Fierce lion: ATK 10, DEF 7 (maximum aggression)  
+                                            • Brick wall: ATK 2, DEF 10 (defensive powerhouse)
+                                            • Lightning: ATK 10, DEF 1 (pure attack, no defense)
+                                            • Racing car: ATK 9, DEF 3 (speed over safety)
+                                            • Castle: ATK 3, DEF 10 (built for defense)
                                             
-                                            RARITY & STATS RELATIONSHIP:
-                                            • COMMON: Usually 2-7 range, can have extremes if image supports it
-                                            • UNCOMMON: Usually 3-8 range, more likely to have good stats
-                                            • RARE: Usually 4-9 range, strong potential for high stats  
-                                            • LEGENDARY: Can use FULL 1-10 range, including perfect 10s!
+                                            CRITICAL: Create exciting contrasts! High attack + low defense OR low attack + high defense!
+                                            Avoid boring middle stats! Most cards should have at least one stat below 4 or above 7!
+                                            
+                                            RARITY & STATS RELATIONSHIP (STRICTLY ENFORCE):
+                                            Each rarity has specific stat ranges - DO NOT exceed these ranges often!
+                                            
+                                            • COMMON (3-6 range): Most stats should be 3-6, rarely go to 7, avoid 8+
+                                              Focus on interesting low-stat combinations (ATK 3 DEF 6, ATK 6 DEF 3)
+                                              Can use 1-2 for very fragile things (bubbles, flowers)
+                                              
+                                            • UNCOMMON (3-7 range): Most stats should be 3-7, occasionally 8 if really justified
+                                              Attack 8 should be RARE for UNCOMMON - only for clearly energetic content
+                                              Good balance of moderate stats with some interesting contrasts
+                                              
+                                            • RARE (4-8 range): Comfortable using 4-8, can have 9 if very justified
+                                              This is where attack 8-9 becomes more common and appropriate
+                                              Strong stats that reflect genuinely impressive content
+                                              
+                                            • EPIC (5-9 range): Strong stats 5-9, can freely use 8-9, occasionally 10
+                                              High stats reflect the exceptional nature of the content
+                                              
+                                            • LEGENDARY (1-10 range): Can use FULL range including perfect 10s and dramatic 1s
+                                              Ultimate freedom but should still make logical sense
+                                            
+                                            CRITICAL STAT RULES:
+                                            • Attack 8+ should be RARE or higher, not UNCOMMON
+                                            • Defense 8+ should be RARE or higher, not UNCOMMON  
+                                            • UNCOMMON with attack 7 is fine, attack 8 should be exceptional
+                                            • Even if image shows energy, consider rarity when assigning high stats
                                             
                                             CREATE VARIETY! Avoid always using 4-6. Be bold with 1-3 and 8-10!
                                             
@@ -235,27 +268,36 @@ class OpenAIService(private val apiKey: String) {
     private fun applyNaturalRarityDistribution(aiSuggestedRarity: CardRarity): CardRarity {
         val random = Random.nextInt(100) + 1 // 1-100
 
-        // Weighted distribution based on natural TCG rarity
+        // Weighted distribution - Better EPIC balance
         val finalRarity = when {
-            random <= 60 -> CardRarity.COMMON      // 60%
-            random <= 85 -> CardRarity.UNCOMMON    // 25% (61-85)
-            random <= 95 -> CardRarity.RARE        // 10% (86-95)
-            else -> CardRarity.LEGENDARY           // 5%  (96-100)
+            random <= 50 -> CardRarity.COMMON      // 50%
+            random <= 75 -> CardRarity.UNCOMMON    // 25% (51-75)
+            random <= 90 -> CardRarity.RARE        // 15% (76-90)
+            random <= 98 -> CardRarity.EPIC        // 8%  (91-98)
+            else -> CardRarity.LEGENDARY           // 2%  (99-100)
         }
 
-        // AI influence: if AI suggests higher rarity and we're close, sometimes upgrade
+        // AI influence - moderate upgrades
         val upgradedRarity = when {
-            // If AI suggests LEGENDARY and we rolled RARE, 30% chance to upgrade
-            aiSuggestedRarity == CardRarity.LEGENDARY && finalRarity == CardRarity.RARE
+            // LEGENDARY upgrades
+            aiSuggestedRarity == CardRarity.LEGENDARY && finalRarity == CardRarity.EPIC
                     && Random.nextFloat() < 0.3 -> CardRarity.LEGENDARY
 
-            // If AI suggests RARE and we rolled UNCOMMON, 20% chance to upgrade
+            // EPIC upgrades
+            aiSuggestedRarity == CardRarity.EPIC && finalRarity == CardRarity.RARE
+                    && Random.nextFloat() < 0.25 -> CardRarity.EPIC
+            aiSuggestedRarity == CardRarity.LEGENDARY && finalRarity == CardRarity.RARE
+                    && Random.nextFloat() < 0.15 -> CardRarity.EPIC
+
+            // RARE upgrades
             aiSuggestedRarity == CardRarity.RARE && finalRarity == CardRarity.UNCOMMON
+                    && Random.nextFloat() < 0.3 -> CardRarity.RARE
+            aiSuggestedRarity >= CardRarity.EPIC && finalRarity == CardRarity.UNCOMMON
                     && Random.nextFloat() < 0.2 -> CardRarity.RARE
 
-            // If AI suggests UNCOMMON and we rolled COMMON, 15% chance to upgrade
-            aiSuggestedRarity == CardRarity.UNCOMMON && finalRarity == CardRarity.COMMON
-                    && Random.nextFloat() < 0.15 -> CardRarity.UNCOMMON
+            // UNCOMMON upgrades
+            aiSuggestedRarity >= CardRarity.RARE && finalRarity == CardRarity.COMMON
+                    && Random.nextFloat() < 0.25 -> CardRarity.UNCOMMON
 
             else -> finalRarity
         }

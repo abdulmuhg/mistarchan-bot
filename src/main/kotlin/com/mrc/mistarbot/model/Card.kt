@@ -6,6 +6,7 @@ enum class CardRarity {
     COMMON,
     UNCOMMON,
     RARE,
+    EPIC,
     LEGENDARY
 }
 

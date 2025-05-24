@@ -12,30 +12,64 @@ private val logger = KotlinLogging.logger {}
  */
 class TestCardService {
 
+    // Updated to match OpenAI distribution
+    companion object {
+        private val RARITY_DISTRIBUTION = mapOf(
+            CardRarity.COMMON to 50,      // 50%
+            CardRarity.UNCOMMON to 25,    // 25%
+            CardRarity.RARE to 15,        // 15%
+            CardRarity.EPIC to 8,         // 8%
+            CardRarity.LEGENDARY to 2     // 2%
+        )
+    }
+
     private val cardTemplates = mapOf(
-        // Fantasy themes
+        // Legendary themes (naturally rare) - Ultimate tier
         "dragon" to Triple("Ancient Dragon", 8..10, CardRarity.LEGENDARY),
-        "warrior" to Triple("Battle Warrior", 7..9, CardRarity.RARE),
-        "knight" to Triple("Noble Knight", 6..8, CardRarity.UNCOMMON),
+        "phoenix" to Triple("Fire Phoenix", 8..9, CardRarity.LEGENDARY),
+        "titan" to Triple("Stone Titan", 7..9, CardRarity.LEGENDARY),
+        "leviathan" to Triple("Sea Leviathan", 6..8, CardRarity.LEGENDARY),
+        "god" to Triple("Divine Entity", 9..10, CardRarity.LEGENDARY),
+        "ultimate" to Triple("Ultimate Being", 8..10, CardRarity.LEGENDARY),
+
+        // Epic themes - Exceptional tier
+        "meme" to Triple("Meme Lord", 7..9, CardRarity.EPIC),
+        "funny" to Triple("Comedy Genius", 6..8, CardRarity.EPIC),
+        "epic" to Triple("Epic Moment", 7..9, CardRarity.EPIC),
+        "legendary" to Triple("Legendary Being", 7..9, CardRarity.EPIC),
+        "master" to Triple("Grand Master", 6..8, CardRarity.EPIC),
+        "champion" to Triple("Arena Champion", 7..9, CardRarity.EPIC),
+
+        // Rare themes - High value
+        "warrior" to Triple("Battle Warrior", 6..8, CardRarity.RARE),
         "wizard" to Triple("Mystic Wizard", 5..7, CardRarity.RARE),
         "mage" to Triple("Arcane Mage", 5..8, CardRarity.RARE),
-        "phoenix" to Triple("Fire Phoenix", 8..9, CardRarity.LEGENDARY),
-        "wolf" to Triple("Shadow Wolf", 6..7, CardRarity.UNCOMMON),
-        "cat" to Triple("Spirit Cat", 4..6, CardRarity.COMMON),
+        "storm" to Triple("Storm Elemental", 7..8, CardRarity.RARE),
+        "group" to Triple("Squad Goals", 6..8, CardRarity.RARE),
+        "party" to Triple("Party Legend", 6..8, CardRarity.RARE),
+        "reaction" to Triple("Reaction Master", 5..7, CardRarity.RARE),
+        "fail" to Triple("Epic Fail", 6..7, CardRarity.RARE),
+        "derp" to Triple("Derp Champion", 5..8, CardRarity.RARE),
 
-        // Nature themes  
+        // Uncommon themes - Social content
+        "knight" to Triple("Noble Knight", 5..7, CardRarity.UNCOMMON),
+        "wolf" to Triple("Shadow Wolf", 6..7, CardRarity.UNCOMMON),
         "forest" to Triple("Forest Guardian", 5..7, CardRarity.UNCOMMON),
+        "robot" to Triple("Cyber Guardian", 6..8, CardRarity.UNCOMMON),
+        "friends" to Triple("Friend Squad", 5..7, CardRarity.UNCOMMON),
+        "selfie" to Triple("Selfie Star", 4..6, CardRarity.UNCOMMON),
+        "smile" to Triple("Smile Keeper", 4..6, CardRarity.UNCOMMON),
+        "face" to Triple("Expression Master", 5..7, CardRarity.UNCOMMON),
+
+        // Common themes
+        "cat" to Triple("Spirit Cat", 3..6, CardRarity.COMMON),
         "tree" to Triple("Ancient Tree", 3..5, CardRarity.COMMON),
         "flower" to Triple("Bloom Spirit", 2..4, CardRarity.COMMON),
-        "mountain" to Triple("Stone Titan", 7..9, CardRarity.RARE),
-        "ocean" to Triple("Sea Leviathan", 6..8, CardRarity.RARE),
-        "storm" to Triple("Storm Elemental", 7..8, CardRarity.RARE),
-
-        // Tech/Modern themes
-        "robot" to Triple("Cyber Guardian", 6..8, CardRarity.UNCOMMON),
-        "car" to Triple("Speed Machine", 5..7, CardRarity.COMMON),
-        "city" to Triple("Urban Titan", 5..6, CardRarity.COMMON),
-        "cyber" to Triple("Digital Entity", 6..7, CardRarity.UNCOMMON)
+        "car" to Triple("Speed Machine", 4..6, CardRarity.COMMON),
+        "city" to Triple("Urban Guardian", 4..6, CardRarity.COMMON),
+        "house" to Triple("Home Spirit", 2..4, CardRarity.COMMON),
+        "food" to Triple("Nourishing Essence", 3..5, CardRarity.COMMON),
+        "book" to Triple("Knowledge Keeper", 3..6, CardRarity.COMMON)
     )
 
     private val fallbackNames = listOf(
@@ -56,7 +90,7 @@ class TestCardService {
             cleanFilename.contains(keyword)
         }
 
-        val (baseName, attackRange, baseRarity) = matchedTemplate?.value
+        val (baseName, attackRange, themeRarity) = matchedTemplate?.value
             ?: Triple(fallbackNames.random(), 4..7, CardRarity.COMMON)
 
         // Add some filename-based variation
@@ -68,6 +102,7 @@ class TestCardService {
             cleanFilename.contains("dark") -> "Dark $baseName"
             cleanFilename.contains("gold") -> "Golden $baseName"
             cleanFilename.contains("ancient") -> "Ancient $baseName"
+            cleanFilename.contains("epic") || cleanFilename.contains("legendary") -> "Epic $baseName"
             else -> baseName
         }
 
@@ -93,14 +128,8 @@ class TestCardService {
             }
         }
 
-        // Filename-based rarity boost
-        val finalRarity = when {
-            cleanFilename.contains("legendary") || cleanFilename.contains("epic") -> CardRarity.LEGENDARY
-            cleanFilename.contains("rare") || cleanFilename.contains("unique") -> CardRarity.RARE
-            cleanFilename.contains("special") || cleanFilename.contains("master") -> CardRarity.UNCOMMON
-            Random.nextFloat() < 0.1 -> CardRarity.values().random() // 10% chance for random rarity boost
-            else -> baseRarity
-        }
+        // Apply natural rarity distribution with filename influence
+        val finalRarity = applyNaturalRarityDistribution(themeRarity, cleanFilename)
 
         // Generate description based on card name and theme
         val description = generateDescription(nameVariation, finalRarity)
@@ -116,6 +145,107 @@ class TestCardService {
             description = description,
             ownerId = userId
         )
+    }
+
+    /**
+     * Applies natural rarity distribution while considering theme and filename hints
+     */
+    private fun applyNaturalRarityDistribution(themeRarity: CardRarity, filename: String): CardRarity {
+        val random = Random.nextInt(100) + 1 // 1-100
+
+        // Base distribution - Better EPIC balance
+        val baseRarity = when {
+            random <= 50 -> CardRarity.COMMON      // 50%
+            random <= 75 -> CardRarity.UNCOMMON    // 25% (51-75)
+            random <= 90 -> CardRarity.RARE        // 15% (76-90)
+            random <= 98 -> CardRarity.EPIC        // 8%  (91-98)
+            else -> CardRarity.LEGENDARY           // 2%  (99-100)
+        }
+
+        // Theme and filename influence - balanced approach
+        val finalRarity = when {
+            // MEME AND FUNNY CONTENT - Good value
+            filename.contains("meme") || filename.contains("funny") || filename.contains("lol") ||
+                    filename.contains("wtf") || filename.contains("derp") || filename.contains("fail") -> {
+                when {
+                    baseRarity >= CardRarity.EPIC || Random.nextFloat() < 0.2 -> {
+                        if (Random.nextFloat() < 0.15) CardRarity.LEGENDARY
+                        else if (Random.nextFloat() < 0.4) CardRarity.EPIC
+                        else CardRarity.RARE
+                    }
+                    baseRarity >= CardRarity.RARE || Random.nextFloat() < 0.4 -> CardRarity.RARE
+                    else -> CardRarity.UNCOMMON
+                }
+            }
+
+            // GROUP AND SOCIAL CONTENT - Community value
+            filename.contains("group") || filename.contains("squad") || filename.contains("friends") ||
+                    filename.contains("party") || filename.contains("selfie") || filename.contains("us") -> {
+                when {
+                    baseRarity >= CardRarity.EPIC || Random.nextFloat() < 0.15 -> {
+                        if (Random.nextFloat() < 0.3) CardRarity.EPIC else CardRarity.RARE
+                    }
+                    baseRarity >= CardRarity.RARE || Random.nextFloat() < 0.35 -> CardRarity.RARE
+                    else -> CardRarity.UNCOMMON
+                }
+            }
+
+            // REACTION/EXPRESSION CONTENT - Meme potential
+            filename.contains("reaction") || filename.contains("face") || filename.contains("expression") ||
+                    filename.contains("smile") || filename.contains("laugh") || filename.contains("cry") -> {
+                when {
+                    baseRarity >= CardRarity.EPIC || Random.nextFloat() < 0.12 -> {
+                        if (Random.nextFloat() < 0.25) CardRarity.EPIC else CardRarity.RARE
+                    }
+                    baseRarity >= CardRarity.RARE || Random.nextFloat() < 0.3 -> CardRarity.RARE
+                    else -> CardRarity.UNCOMMON
+                }
+            }
+
+            // Strong legendary indicators
+            filename.contains("legendary") || filename.contains("ultimate") || filename.contains("divine") -> {
+                when {
+                    baseRarity >= CardRarity.LEGENDARY || Random.nextFloat() < 0.1 -> CardRarity.LEGENDARY
+                    baseRarity >= CardRarity.EPIC || Random.nextFloat() < 0.2 -> CardRarity.EPIC
+                    else -> CardRarity.RARE
+                }
+            }
+
+            // Epic indicators
+            filename.contains("epic") || filename.contains("master") || filename.contains("champion") -> {
+                when {
+                    baseRarity >= CardRarity.EPIC || Random.nextFloat() < 0.2 -> {
+                        if (Random.nextFloat() < 0.15) CardRarity.LEGENDARY else CardRarity.EPIC
+                    }
+                    baseRarity >= CardRarity.RARE || Random.nextFloat() < 0.4 -> CardRarity.RARE
+                    else -> CardRarity.UNCOMMON
+                }
+            }
+
+            // Strong rare indicators
+            filename.contains("rare") || filename.contains("special") || filename.contains("unique") -> {
+                when {
+                    baseRarity >= CardRarity.RARE || Random.nextFloat() < 0.3 -> {
+                        if (Random.nextFloat() < 0.1) CardRarity.EPIC else CardRarity.RARE
+                    }
+                    else -> CardRarity.UNCOMMON
+                }
+            }
+
+            // Theme influence: if theme suggests higher rarity, small chance to upgrade
+            themeRarity == CardRarity.LEGENDARY && baseRarity == CardRarity.RARE
+                    && Random.nextFloat() < 0.2 -> CardRarity.LEGENDARY
+
+            themeRarity == CardRarity.RARE && baseRarity == CardRarity.UNCOMMON
+                    && Random.nextFloat() < 0.3 -> CardRarity.RARE
+
+            themeRarity == CardRarity.UNCOMMON && baseRarity == CardRarity.COMMON
+                    && Random.nextFloat() < 0.25 -> CardRarity.UNCOMMON
+
+            else -> baseRarity
+        }
+
+        return finalRarity
     }
 
     private fun generateDescription(name: String, rarity: CardRarity): String {
@@ -139,13 +269,29 @@ class TestCardService {
             "shadow" to listOf("Moves unseen in darkness", "Master of stealth", "Born from nightmares"),
             "light" to listOf("Beacon of hope", "Banisher of shadows", "Radiant and pure"),
             "crystal" to listOf("Focuses magical energy", "Unbreakable and pure", "Harbors ancient power"),
-            "storm" to listOf("Commands wind and lightning", "Fury of the tempest", "Harbinger of change")
+            "storm" to listOf("Commands wind and lightning", "Fury of the tempest", "Harbinger of change"),
+            "cat" to listOf("Silent hunter", "Graceful and agile", "Watches from shadows"),
+            "tree" to listOf("Ancient wisdom keeper", "Rooted in earth's power", "Stands through all seasons"),
+            "flower" to listOf("Delicate beauty", "Nature's gentle touch", "Blooms with life energy"),
+
+            // NEW: Meme and social descriptions
+            "meme" to listOf("Peak comedy achieved", "Viral sensation unleashed", "Internet legend born"),
+            "funny" to listOf("Spreads pure joy", "Master of comedic timing", "Laughter incarnate"),
+            "group" to listOf("Squad goals activated", "Friendship power unlocked", "Unity in chaos"),
+            "party" to listOf("Life of every gathering", "Celebration mastermind", "Joy spreader supreme"),
+            "selfie" to listOf("Captures perfect moments", "Social media royalty", "Confidence radiates"),
+            "friends" to listOf("Bond stronger than steel", "Memories maker", "Loyalty personified"),
+            "reaction" to listOf("Perfect expression capture", "Emotion made visible", "Response game strong"),
+            "fail" to listOf("Learns from every mistake", "Embraces chaos gracefully", "Humor in disaster"),
+            "face" to listOf("Expression tells stories", "Emotion master", "Visual storyteller"),
+            "smile" to listOf("Brightens darkest days", "Happiness spreader", "Joy bringer")
         )
 
         val rarityPrefixes = when (rarity) {
             CardRarity.COMMON -> listOf("", "Simple yet effective", "Humble but reliable")
-            CardRarity.UNCOMMON -> listOf("Uncommonly skilled", "Rare talent", "Notable ability")
-            CardRarity.RARE -> listOf("Exceptionally powerful", "Legendary skill", "Extraordinary might")
+            CardRarity.UNCOMMON -> listOf("Uncommonly skilled", "Notable ability", "Rising talent")
+            CardRarity.RARE -> listOf("Exceptionally powerful", "Remarkable prowess", "Extraordinary might")
+            CardRarity.EPIC -> listOf("Epic mastery", "Exceptional greatness", "Legendary potential")
             CardRarity.LEGENDARY -> listOf("Ultimate power", "Mythical strength", "Divine authority")
         }
 

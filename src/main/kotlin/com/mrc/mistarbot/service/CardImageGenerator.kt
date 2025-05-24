@@ -73,6 +73,7 @@ class CardImageGenerator {
             CardRarity.COMMON -> Color(240, 240, 245) to Color(200, 200, 210)
             CardRarity.UNCOMMON -> Color(230, 255, 230) to Color(180, 230, 180)
             CardRarity.RARE -> Color(220, 240, 255) to Color(160, 200, 255) // More blue!
+            CardRarity.EPIC -> Color(255, 230, 255) to Color(220, 180, 255) // Purple/Magenta
             CardRarity.LEGENDARY -> Color(255, 250, 200) to Color(230, 200, 120)
         }
 
@@ -86,6 +87,7 @@ class CardImageGenerator {
             CardRarity.COMMON -> Color(120, 120, 120)
             CardRarity.UNCOMMON -> Color(60, 160, 60)
             CardRarity.RARE -> Color(60, 60, 200)
+            CardRarity.EPIC -> Color(180, 60, 180)    // Purple/Magenta
             CardRarity.LEGENDARY -> Color(220, 180, 60)
         }
 
@@ -166,6 +168,7 @@ class CardImageGenerator {
             CardRarity.COMMON -> Color(200, 200, 200)
             CardRarity.UNCOMMON -> Color(180, 220, 180)
             CardRarity.RARE -> Color(180, 200, 240) // More blue for rare
+            CardRarity.EPIC -> Color(220, 180, 240) // Purple for epic
             CardRarity.LEGENDARY -> Color(230, 200, 120)
         }
 
@@ -219,6 +222,7 @@ class CardImageGenerator {
             CardRarity.COMMON -> "COMMON"
             CardRarity.UNCOMMON -> "UNCOMMON"
             CardRarity.RARE -> "RARE"
+            CardRarity.EPIC -> "EPIC"
             CardRarity.LEGENDARY -> "LEGENDARY"
         }
 
@@ -226,6 +230,7 @@ class CardImageGenerator {
             CardRarity.COMMON -> Color.GRAY
             CardRarity.UNCOMMON -> Color.GREEN
             CardRarity.RARE -> Color.BLUE
+            CardRarity.EPIC -> Color.MAGENTA
             CardRarity.LEGENDARY -> Color.ORANGE
         }
 
