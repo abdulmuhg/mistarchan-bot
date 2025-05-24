@@ -39,12 +39,14 @@ class SlashCommandHandler(
                                 "LEGENDARY" -> "🟡"
                                 else -> "⚪"
                             }
-                            appendLine("${card.id}. ${card.name}")
-                            appendLine("   ATK: ${card.attack} | DEF: ${card.defense} | $rarity ${card.rarity}")
+                            // IMPROVED: Make ID more obvious
+                            appendLine("[ID: ${card.id}] ${card.name}")
+                            appendLine("         ATK: ${card.attack} | DEF: ${card.defense} | $rarity ${card.rarity}")
                             if (index < cards.size - 1) appendLine()
                         }
                         appendLine("```")
-                        appendLine("Use `/card <id>` to view a specific card in detail!")
+                        appendLine("💡 **How to view details:** Use `/card <ID>` (example: `/card ${cards.first().id}`)")
+                        appendLine("⚔️ **Ready to battle?** Use `/challenge @user` when you have 3+ cards!")
                     }
                     response.respond {
                         content = cardList
@@ -67,7 +69,7 @@ class SlashCommandHandler(
         val cardId = interaction.command.integers["id"]?.toInt()
         if (cardId == null) {
             response.respond {
-                content = "Invalid card ID provided."
+                content = "❌ Invalid card ID provided. Use `/cards list` to see your card IDs!"
             }
             return
         }
@@ -77,7 +79,16 @@ class SlashCommandHandler(
 
         if (card == null) {
             response.respond {
-                content = "Card #$cardId not found or you don't own it."
+                content = """
+                    ❌ Card #$cardId not found or you don't own it.
+                    
+                    💡 **Your available card IDs:**
+                    ${if (cards.isEmpty())
+                    "• No cards yet! Upload images to create cards."
+                else
+                    cards.joinToString("\n") { "• ID ${it.id}: ${it.name}" }
+                }
+                """.trimIndent()
             }
             return
         }
@@ -92,12 +103,17 @@ class SlashCommandHandler(
 
         response.respond {
             content = """
-                **Card #${card.id}: ${card.name}**
+                **🎴 Card Details - ID #${card.id}**
+                
+                **📛 Name:** ${card.name}
                 ⚔️ **Attack:** ${card.attack}/10
                 🛡️ **Defense:** ${card.defense}/10
                 $rarityEmoji **Rarity:** ${card.rarity}
                 🖼️ **Image:** ${card.imageUrl}
                 📅 **Created:** <t:${card.createdAt / 1000}:R>
+                ${if (!card.description.isNullOrBlank()) "\n💭 **Description:** ${card.description}" else ""}
+                
+                💡 **Usage:** This card can be used in battles with `/challenge @user`
             """.trimIndent()
         }
     }
@@ -164,32 +180,32 @@ class SlashCommandHandler(
         activeGames[interaction.channelId.toString()] = battle
 
         val playerACardList =
-            battle.playerACards.joinToString("\n") { "• ${it.name} (ATK: ${it.attack}, DEF: ${it.defense})" }
+            battle.playerACards.joinToString("\n") { "• [ID: ${it.id}] ${it.name} (ATK: ${it.attack}, DEF: ${it.defense})" }
         val playerBCardList =
-            battle.playerBCards.joinToString("\n") { "• ${it.name} (ATK: ${it.attack}, DEF: ${it.defense})" }
+            battle.playerBCards.joinToString("\n") { "• [ID: ${it.id}] ${it.name} (ATK: ${it.attack}, DEF: ${it.defense})" }
 
         response.respond {
             content = """
                 ⚔️ **Battle Started!** ⚔️
                 ${interaction.user.mention} vs ${targetUser.mention}
                 
-                **${interaction.user.username}'s Cards:**
+                **${interaction.user.username}'s Battle Cards:**
                 $playerACardList
                 
-                **${targetUser.username}'s Cards:**  
+                **${targetUser.username}'s Battle Cards:**  
                 $playerBCardList
                 
-                **How to Play:**
+                **🎯 How to Play:**
                 Use `/play <card_id> <attack/defense>` to make your moves!
                 
-                **Battle Rules:**
+                **📋 Battle Rules:**
                 • Best of 3 rounds wins the battle
                 • Attack vs Attack: Higher attack wins
                 • Attack vs Defense: Attack wins if Attack > Defense  
                 • Defense vs Attack: Defense wins if Defense ≥ Attack
                 • Defense vs Defense: Tie (no points)
                 
-                **${interaction.user.username}** goes first!
+                **${interaction.user.username}** goes first! Choose a card ID from your battle cards above.
             """.trimIndent()
         }
     }
@@ -246,12 +262,12 @@ class SlashCommandHandler(
                     • The card hasn't been used already  
                     • You're using one of your battle cards
                     
-                    Your available cards:
+                    **Your available battle card IDs:**
                     ${
                     getBattleCards(
                         battle,
                         interaction.user.id.toString()
-                    ).joinToString("\n") { "• ID ${it.id}: ${it.name}" }
+                    ).joinToString("\n") { "• [ID: ${it.id}] ${it.name}" }
                 }
                 """.trimIndent()
             }
@@ -276,10 +292,12 @@ class SlashCommandHandler(
                 🎴 **MistarChan Bot - AI Trading Card Game**
                 
                 **📋 Commands:**
-                `/cards list` - View your card collection
-                `/card <id>` - View details of a specific card
+                `/cards list` - View your card collection (shows card IDs)
+                `/card <id>` - View details of a specific card (use ID from list)
                 `/challenge @user` - Challenge another user to battle
                 `/play <card_id> <attack/defense>` - Make a move in battle
+                `/status` - Show bot status and your stats
+                `/clear` - Clear your card collection
                 `/help` - Show this help message
                 
                 **🎨 How to Create Cards:**
@@ -288,6 +306,12 @@ class SlashCommandHandler(
                 • **Attack** power (1-10) 
                 • **Defense** power (1-10)
                 • **Rarity** (Common ⚪ | Uncommon 🟢 | Rare 🔵 | Legendary 🟡)
+                • **Description** with mystical flavor text
+                
+                **🔍 Finding Card IDs:**
+                1. Use `/cards list` to see all your cards
+                2. Look for `[ID: 123]` next to each card name
+                3. Use `/card 123` to see full details
                 
                 **⚔️ Battle System:**
                 • Challenge players with `/challenge @user`
@@ -303,9 +327,10 @@ class SlashCommandHandler(
                 
                 **🚀 Getting Started:**
                 1. Upload an image to create your first card
-                2. Create at least 3 cards to battle
-                3. Challenge someone with `/challenge @user`
-                4. Have fun! 🎉
+                2. Use `/cards list` to see your cards and their IDs
+                3. Create at least 3 cards to battle
+                4. Challenge someone with `/challenge @user`
+                5. Have fun! 🎉
             """.trimIndent()
         }
     }

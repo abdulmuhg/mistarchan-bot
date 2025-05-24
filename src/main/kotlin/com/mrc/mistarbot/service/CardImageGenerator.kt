@@ -41,8 +41,8 @@ class CardImageGenerator {
             drawCardFrame(g2d, card.rarity)
             drawUserImage(g2d, originalImageUrl)
             drawCardTitle(g2d, card.name, card.rarity)
-            drawStatsSection(g2d, card)
-            drawRarityBadge(g2d, card.rarity)
+            drawStatsSection(g2d, card) // Now includes rarity badge in the middle
+            drawCardDescription(g2d, card.description) // New: Draw description
 
             g2d.dispose()
 
@@ -72,7 +72,7 @@ class CardImageGenerator {
         val (topColor, bottomColor) = when (rarity) {
             CardRarity.COMMON -> Color(240, 240, 245) to Color(200, 200, 210)
             CardRarity.UNCOMMON -> Color(230, 255, 230) to Color(180, 230, 180)
-            CardRarity.RARE -> Color(230, 230, 255) to Color(180, 180, 230)
+            CardRarity.RARE -> Color(220, 240, 255) to Color(160, 200, 255) // More blue!
             CardRarity.LEGENDARY -> Color(255, 250, 200) to Color(230, 200, 120)
         }
 
@@ -165,7 +165,7 @@ class CardImageGenerator {
         val titleColor = when (rarity) {
             CardRarity.COMMON -> Color(200, 200, 200)
             CardRarity.UNCOMMON -> Color(180, 220, 180)
-            CardRarity.RARE -> Color(180, 180, 220)
+            CardRarity.RARE -> Color(180, 200, 240) // More blue for rare
             CardRarity.LEGENDARY -> Color(230, 200, 120)
         }
 
@@ -210,15 +210,67 @@ class CardImageGenerator {
         // Defense stat (right)
         drawStatBox(g2d, "Defense", card.defense.toString(), CARD_WIDTH - 120, statsY + 20, Color.LIGHT_GRAY)
 
-        // Divider line instead of "VS"
-        g2d.color = Color.DARK_GRAY
-        g2d.stroke = BasicStroke(3f)
-        val centerX = CARD_WIDTH / 2
-        g2d.drawLine(centerX, statsY + 25, centerX, statsY + 55)
+        // NEW: Draw rarity badge in the center instead of divider
+        drawRarityBadgeInCenter(g2d, card.rarity, statsY + 30)
+    }
 
-        // Optional: Add small decorative elements at top and bottom of divider
-        g2d.fillOval(centerX - 3, statsY + 22, 6, 6)
-        g2d.fillOval(centerX - 3, statsY + 52, 6, 6)
+    private fun drawRarityBadgeInCenter(g2d: Graphics2D, rarity: CardRarity, centerY: Int) {
+        val rarityText = when (rarity) {
+            CardRarity.COMMON -> "COMMON"
+            CardRarity.UNCOMMON -> "UNCOMMON"
+            CardRarity.RARE -> "RARE"
+            CardRarity.LEGENDARY -> "LEGENDARY"
+        }
+
+        val badgeColor = when (rarity) {
+            CardRarity.COMMON -> Color.GRAY
+            CardRarity.UNCOMMON -> Color.GREEN
+            CardRarity.RARE -> Color.BLUE
+            CardRarity.LEGENDARY -> Color.ORANGE
+        }
+
+        g2d.font = Font("Arial", Font.BOLD, 11)
+        val fm = g2d.fontMetrics
+        val textWidth = fm.stringWidth(rarityText)
+        val badgeWidth = textWidth + 16
+        val badgeHeight = 20
+        val badgeX = (CARD_WIDTH - badgeWidth) / 2
+        val badgeY = centerY - badgeHeight / 2
+
+        // NEW: Gradient background for fancy look
+        val lightColor = badgeColor.brighter()
+        val darkColor = badgeColor.darker()
+        val gradient = GradientPaint(
+            badgeX.toFloat(), badgeY.toFloat(), lightColor,
+            badgeX.toFloat(), (badgeY + badgeHeight).toFloat(), darkColor
+        )
+        g2d.paint = gradient
+        g2d.fillRoundRect(badgeX, badgeY, badgeWidth, badgeHeight, 10, 10)
+
+        // Badge border with slight glow effect
+        g2d.color = badgeColor.darker().darker()
+        g2d.stroke = BasicStroke(2f)
+        g2d.drawRoundRect(badgeX, badgeY, badgeWidth, badgeHeight, 10, 10)
+
+        // Inner highlight for more depth
+        g2d.color = lightColor.brighter()
+        g2d.stroke = BasicStroke(1f)
+        g2d.drawRoundRect(badgeX + 1, badgeY + 1, badgeWidth - 2, badgeHeight - 2, 8, 8)
+
+        // Badge text with shadow effect
+        g2d.color = Color.BLACK
+        val textX = badgeX + (badgeWidth - textWidth) / 2
+        val textY = badgeY + (badgeHeight + fm.ascent) / 2 - 1
+
+        // Text shadow
+        g2d.drawString(rarityText, textX + 1, textY + 1)
+
+        // Main text
+        g2d.color = Color.WHITE
+        g2d.drawString(rarityText, textX, textY)
+
+        // Reset paint to solid color
+        g2d.paint = Color.BLACK
     }
 
     private fun drawStatBox(g2d: Graphics2D, label: String, value: String, x: Int, y: Int, backgroundColor: Color) {
@@ -226,7 +278,7 @@ class CardImageGenerator {
         val boxHeight = 40
 
         // Stat background - use light gray
-        g2d.color = Color(220, 220, 220) // Light gray background
+        g2d.color = Color(220, 220, 220)
         g2d.fillRoundRect(x, y, boxWidth, boxHeight, 8, 8)
 
         // Stat border - darker gray for contrast
@@ -248,35 +300,48 @@ class CardImageGenerator {
         g2d.drawString(value, valueX, y + 32)
     }
 
-    private fun drawRarityBadge(g2d: Graphics2D, rarity: CardRarity) {
-        val badgeY = 385
-        val rarityText = rarity.name
+    // NEW: Draw card description (max 2 lines)
+    private fun drawCardDescription(g2d: Graphics2D, description: String?) {
+        if (description.isNullOrBlank()) return
 
-        val badgeColor = when (rarity) {
-            CardRarity.COMMON -> Color.GRAY
-            CardRarity.UNCOMMON -> Color.GREEN
-            CardRarity.RARE -> Color.BLUE
-            CardRarity.LEGENDARY -> Color.ORANGE
+        val descY = 390
+        g2d.color = Color.BLACK
+        g2d.font = Font("Arial", Font.ITALIC, 12)
+        val fm = g2d.fontMetrics
+
+        // Split description into words and fit into 2 lines
+        val words = description.split(" ")
+        val lines = mutableListOf<String>()
+        var currentLine = ""
+
+        for (word in words) {
+            val testLine = if (currentLine.isEmpty()) word else "$currentLine $word"
+            if (fm.stringWidth(testLine) <= CARD_WIDTH - 60) {
+                currentLine = testLine
+            } else {
+                if (currentLine.isNotEmpty()) {
+                    lines.add(currentLine)
+                    currentLine = word
+                } else {
+                    // Single word is too long, truncate it
+                    currentLine = word.take(20) + "..."
+                    lines.add(currentLine)
+                    currentLine = ""
+                }
+
+                if (lines.size >= 2) break // Max 2 lines
+            }
         }
 
-        g2d.font = Font("Arial", Font.BOLD, 14)
-        val fm = g2d.fontMetrics
-        val textWidth = fm.stringWidth(rarityText)
-        val badgeWidth = textWidth + 30
-        val badgeX = (CARD_WIDTH - badgeWidth) / 2
+        if (currentLine.isNotEmpty() && lines.size < 2) {
+            lines.add(currentLine)
+        }
 
-        // Badge background
-        g2d.color = badgeColor
-        g2d.fillRoundRect(badgeX, badgeY - 20, badgeWidth, 25, 12, 12)
-
-        // Badge border
-        g2d.color = badgeColor.darker()
-        g2d.stroke = BasicStroke(1f)
-        g2d.drawRoundRect(badgeX, badgeY - 20, badgeWidth, 25, 12, 12)
-
-        // Badge text
-        g2d.color = Color.WHITE
-        val textX = badgeX + (badgeWidth - textWidth) / 2
-        g2d.drawString(rarityText, textX, badgeY - 5)
+        // Draw the lines
+        lines.forEachIndexed { index, line ->
+            val lineY = descY + (index * (fm.height + 2))
+            val lineX = (CARD_WIDTH - fm.stringWidth(line)) / 2
+            g2d.drawString(line, lineX, lineY)
+        }
     }
 }

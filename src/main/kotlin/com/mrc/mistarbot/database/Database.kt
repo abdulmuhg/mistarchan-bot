@@ -4,9 +4,8 @@ import com.mrc.mistarbot.model.Card
 import com.mrc.mistarbot.model.CardRarity
 import mu.KotlinLogging
 import org.jetbrains.exposed.dao.id.IntIdTable
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.Database as ExposedDatabase
 
@@ -68,6 +67,44 @@ object Database {
                     description = row[Cards.description],
                     createdAt = row[Cards.createdAt]
                 )
+            }
+    }
+
+    // NEW: Clear all cards from database (admin only)
+    fun clearAllCards(): Int = transaction {
+        val deletedCount = Cards.deleteAll()
+        logger.info { "🗑️ Cleared $deletedCount cards from database" }
+        deletedCount
+    }
+
+    // NEW: Clear cards for specific user
+    fun clearUserCards(ownerId: String): Int = transaction {
+        val deletedCount = Cards.deleteWhere { Cards.ownerId eq ownerId }
+        logger.info { "🗑️ Cleared $deletedCount cards for user: $ownerId" }
+        deletedCount
+    }
+
+    // NEW: Get total card count for statistics
+    fun getTotalCardCount(): Long = transaction {
+        Cards.selectAll().count()
+    }
+
+    // NEW: Get card count by rarity (for statistics)
+    fun getCardCountByRarity(): Map<CardRarity, Long> = transaction {
+        CardRarity.entries.associateWith { rarity ->
+            Cards.select { Cards.rarity eq rarity }.count()
+        }
+    }
+
+    // NEW: Get top card owners (for leaderboards)
+    fun getTopCardOwners(limit: Int = 10): List<Pair<String, Long>> = transaction {
+        Cards.slice(Cards.ownerId, Cards.ownerId.count())
+            .selectAll()
+            .groupBy(Cards.ownerId)
+            .orderBy(Cards.ownerId.count(), SortOrder.DESC)
+            .limit(limit)
+            .map { row ->
+                row[Cards.ownerId] to row[Cards.ownerId.count()]
             }
     }
 }

@@ -5,6 +5,7 @@ import com.mrc.mistarbot.database.Database
 import com.mrc.mistarbot.game.Battle
 import com.mrc.mistarbot.service.CardImageGenerator
 import com.mrc.mistarbot.service.OpenAIService
+import com.mrc.mistarbot.service.TestCardService  // NEW: Import TestCardService
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.channel.createMessage
@@ -39,16 +40,23 @@ suspend fun main() {
         ?: throw IllegalArgumentException("DISCORD_TOKEN environment variable must be set")
     logger.info { "Discord token loaded" }
 
-    val openAiKey = System.getenv("OPENAI_API_KEY")
-        ?: throw IllegalArgumentException("OPENAI_API_KEY environment variable must be set")
-    logger.info { "OpenAI key loaded" }
+    val openAiKey = System.getenv("OPENAI_API_KEY") // Now optional
+    logger.info { "OpenAI key: ${if (openAiKey?.isNotEmpty() == true) "✅ Loaded" else "❌ Missing (will use test mode)"}" }
 
-    // Optional: Set your test guild ID for faster command registration
-    val testGuildId = System.getenv("TEST_GUILD_ID") // Add this to your environment variables
-    val adminUserId = System.getenv("ADMIN_USER_ID") // Your Discord user ID for shutdown commands
+    // NEW: Configuration options
+    val testGuildId = System.getenv("TEST_GUILD_ID")
+    val adminUserId = System.getenv("ADMIN_USER_ID")
+    val testMode = System.getenv("TEST_MODE")?.toBoolean() ?: (openAiKey.isNullOrEmpty())
+    val visualMode = System.getenv("VISUAL_CARDS")?.toBoolean() ?: true
+
+    logger.info { "🎯 Test Mode: ${if (testMode) "ON" else "OFF"}" }
+    logger.info { "🎨 Visual Cards: ${if (visualMode) "ON" else "OFF"}" }
 
     Database.init()
-    val openAI = OpenAIService(openAiKey)
+
+    // Initialize services
+    val openAI = if (!openAiKey.isNullOrEmpty()) OpenAIService(openAiKey) else null
+    val testCardService = TestCardService() // NEW: Always available
     val commandHandler = SlashCommandHandler(activeGames)
 
     logger.info { "Initializing Kord..." }
@@ -63,15 +71,8 @@ suspend fun main() {
         runBlocking {
             try {
                 logger.info { "🔄 Shutting down bot gracefully..." }
-
-                // Cancel ongoing operations
                 botScope.cancel("Bot shutdown")
-
-                // Close Discord connection with timeout
-                withTimeout(5000) {
-                    kord.shutdown()
-                }
-
+                withTimeout(5000) { kord.shutdown() }
                 logger.info { "✅ Bot disconnected successfully" }
             } catch (e: Exception) {
                 logger.error(e) { "❌ Error during shutdown" }
@@ -96,6 +97,9 @@ suspend fun main() {
                 "challenge" -> commandHandler.handleChallengeCommand(interaction, response)
                 "play" -> commandHandler.handlePlayCommand(interaction, response)
                 "help" -> commandHandler.handleHelpCommand(response)
+                // NEW: Admin commands
+                "clear" -> handleClearCommand(interaction, response, adminUserId)
+                "status" -> handleStatusCommand(interaction, response, testMode, visualMode)
                 else -> {
                     response.respond {
                         content = "Unknown command: ${interaction.invokedCommandName}"
@@ -118,7 +122,7 @@ suspend fun main() {
         // Debug commands
         when (message.content) {
             "!test-openai" -> {
-                message.channel.createMessage("OpenAI Key: ${if (openAiKey.isNotEmpty()) "✅ Loaded" else "❌ Missing"}")
+                message.channel.createMessage("OpenAI Key: ${if (openAiKey?.isNotEmpty() == true) "✅ Loaded" else "❌ Missing"}")
             }
 
             "!debug" -> {
@@ -126,10 +130,11 @@ suspend fun main() {
                     """
                     🔍 **Debug Info:**
                     Bot Status: ✅ Online
-                    OpenAI Key: ${if (openAiKey.isNotEmpty()) "✅ Set" else "❌ Missing"}
+                    OpenAI Key: ${if (openAiKey?.isNotEmpty() == true) "✅ Set" else "❌ Missing"}
+                    Test Mode: ${if (testMode) "✅ ON" else "❌ OFF"}
+                    Visual Cards: ${if (visualMode) "✅ ON" else "❌ OFF"}
                     Database: ✅ Connected
                     Slash Commands: ✅ Registered
-                    Message Content: '${message.content}'
                     
                     Try uploading an image to create a card!
                 """.trimIndent()
@@ -142,6 +147,24 @@ suspend fun main() {
                 val endTime = System.currentTimeMillis()
                 msg.edit {
                     content = "🏓 Pong! Bot latency: ${endTime - startTime}ms"
+                }
+            }
+
+            // NEW: Clear database command
+            "!clear-db" -> {
+                if (adminUserId != null && message.author?.id.toString() == adminUserId) {
+                    Database.clearAllCards()
+                    message.channel.createMessage("🗑️ Database cleared! All cards removed.")
+                } else {
+                    message.channel.createMessage("❌ Only admin can clear the database.")
+                }
+            }
+
+            // NEW: Toggle test mode
+            "!toggle-mode" -> {
+                if (adminUserId != null && message.author?.id.toString() == adminUserId) {
+                    val currentMode = if (testMode) "Test Mode" else "OpenAI Mode"
+                    message.channel.createMessage("🔄 Current mode: **$currentMode**\nUse environment variable TEST_MODE=true/false to change modes.")
                 }
             }
 
@@ -158,7 +181,7 @@ suspend fun main() {
 
         // Handle image uploads
         if (message.attachments.isNotEmpty()) {
-            handleImageUpload(message, openAI)
+            handleImageUpload(message, openAI, testCardService, testMode, visualMode)
         }
     }
 
@@ -186,13 +209,11 @@ private suspend fun registerSlashCommands(kord: Kord, testGuildId: String?) {
     try {
         val commands = if (testGuildId != null) {
             logger.info { "Registering guild-specific commands for faster testing in guild: $testGuildId" }
-            // Guild commands appear instantly
             kord.createGuildApplicationCommands(Snowflake(testGuildId)) {
                 createCommands()
             }.toList()
         } else {
             logger.info { "Registering global commands (may take up to 1 hour to appear)" }
-            // Global commands take up to 1 hour
             kord.createGlobalApplicationCommands {
                 createCommands()
             }.toList()
@@ -206,7 +227,7 @@ private suspend fun registerSlashCommands(kord: Kord, testGuildId: String?) {
 }
 
 private fun dev.kord.rest.builder.interaction.MultiApplicationCommandBuilder.createCommands() {
-    // /cards command
+    // Existing commands
     input("cards", "Manage your card collection") {
         string("action", "What to do with your cards") {
             choice("list", "list")
@@ -214,21 +235,18 @@ private fun dev.kord.rest.builder.interaction.MultiApplicationCommandBuilder.cre
         }
     }
 
-    // /card command
     input("card", "View details of a specific card") {
         integer("id", "The ID of the card to view") {
             required = true
         }
     }
 
-    // /challenge command
     input("challenge", "Challenge another user to a battle") {
         user("opponent", "The user you want to challenge") {
             required = true
         }
     }
 
-    // /play command
     input("play", "Make a move in an active battle") {
         integer("card_id", "The ID of the card to play") {
             required = true
@@ -240,19 +258,75 @@ private fun dev.kord.rest.builder.interaction.MultiApplicationCommandBuilder.cre
         }
     }
 
-    // /help command
     input("help", "Show bot commands and usage information")
+
+    // NEW: Admin commands
+    input("clear", "Clear your card collection (admin: clear all)")
+    input("status", "Show bot status and configuration")
 }
 
-// Replace your handleImageUpload function with this enhanced version
+// NEW: Handle clear command
+private suspend fun handleClearCommand(
+    interaction: dev.kord.core.entity.interaction.GuildChatInputCommandInteraction,
+    response: dev.kord.core.behavior.interaction.response.DeferredPublicMessageInteractionResponseBehavior,
+    adminUserId: String?
+) {
+    val isAdmin = adminUserId != null && interaction.user.id.toString() == adminUserId
 
-private suspend fun handleImageUpload(message: Message, openAI: OpenAIService) {
-    logger.info { "🖼️ IMAGE UPLOAD from user: ${message.author?.id}" }
+    if (isAdmin) {
+        Database.clearAllCards()
+        response.respond {
+            content = "🗑️ **Admin Action:** All cards cleared from database!"
+        }
+    } else {
+        Database.clearUserCards(interaction.user.id.toString())
+        response.respond {
+            content = "🗑️ Your card collection has been cleared!"
+        }
+    }
+}
 
-    // Log every attachment in detail
+// NEW: Handle status command
+private suspend fun handleStatusCommand(
+    interaction: dev.kord.core.entity.interaction.GuildChatInputCommandInteraction,
+    response: dev.kord.core.behavior.interaction.response.DeferredPublicMessageInteractionResponseBehavior,
+    testMode: Boolean,
+    visualMode: Boolean
+) {
+    val totalCards = Database.getTotalCardCount()
+    val userCards = Database.getCardsByOwner(interaction.user.id.toString()).size
+
+    response.respond {
+        content = """
+            🤖 **Bot Status:**
+            
+            **🎮 Mode:** ${if (testMode) "Test Mode (Smart AI-free cards)" else "OpenAI Mode (AI-powered)"}
+            **🎨 Visual Cards:** ${if (visualMode) "Enabled" else "Disabled"}
+            
+            **📊 Database:**
+            • Total Cards: $totalCards
+            • Your Cards: $userCards
+            
+            **💡 Tips:**
+            • Upload images to create cards
+            • Use `/cards list` to see your collection
+            • Need 3+ cards to battle with `/challenge`
+        """.trimIndent()
+    }
+}
+
+// UPDATED: Enhanced image upload handler with test mode
+private suspend fun handleImageUpload(
+    message: Message,
+    openAI: OpenAIService?,
+    testCardService: TestCardService,
+    testMode: Boolean,
+    visualMode: Boolean
+) {
+    logger.info { "🖼️ IMAGE UPLOAD from user: ${message.author?.id} (Mode: ${if (testMode) "TEST" else "OPENAI"})" }
+
     message.attachments.forEachIndexed { i, att ->
         logger.info { "📎 Attachment $i: '${att.filename}' size=${att.size} type=${att.contentType}" }
-        logger.info { "🔍 Image check: ${att.hasImageExtension()}" }
     }
 
     val imageAttachment = message.attachments.firstOrNull { it.hasImageExtension() }
@@ -263,83 +337,81 @@ private suspend fun handleImageUpload(message: Message, openAI: OpenAIService) {
         return
     }
 
-    logger.info { "✅ PROCESSING: ${imageAttachment.filename}" }
+    logger.info { "✅ PROCESSING: ${imageAttachment.filename} in ${if (testMode) "TEST" else "OPENAI"} mode" }
     val loadingMsg = message.channel.createMessage("🔄 Creating your card...")
 
     try {
-        // Step 1: Generate card stats using AI
-        loadingMsg.edit { content = "🤖 AI analyzing image..." }
-        logger.info { "🤖 CALLING OPENAI..." }
-        val card = openAI.analyzeImage(imageAttachment.url, message.author!!.id.toString())
+        val card = if (testMode || openAI == null) {
+            // Use TestCardService
+            loadingMsg.edit { content = "🎲 Smart analysis (Test Mode)..." }
+            logger.info { "🎲 USING TEST SERVICE..." }
+            testCardService.createSmartCard(imageAttachment.filename, imageAttachment.url, message.author!!.id.toString())
+        } else {
+            // Use OpenAI
+            loadingMsg.edit { content = "🤖 AI analyzing image..." }
+            logger.info { "🤖 CALLING OPENAI..." }
+            openAI.analyzeImage(imageAttachment.url, message.author!!.id.toString())
+        }
 
         logger.info { "✨ CARD CREATED: ${card.name}" }
         val savedCard = Database.saveCard(card)
-
-        // Step 2: Check if visual card generation is enabled
-        val visualMode = System.getenv("VISUAL_CARDS")?.toBoolean() ?: true // Default to true for visual cards
 
         if (visualMode) {
             loadingMsg.edit { content = "🎨 Generating visual card..." }
 
             try {
-                // Generate visual card
                 val cardGenerator = CardImageGenerator()
                 val cardImageBytes = cardGenerator.generateCardImage(savedCard, imageAttachment.url)
 
                 logger.info { "🎨 Visual card generated (${cardImageBytes.size} bytes)" }
 
-                // OPTION 1: Using temporary file with Path (most compatible)
                 val tempFile = kotlin.io.path.createTempFile("card_${savedCard.id}", ".png")
                 tempFile.writeBytes(cardImageBytes)
 
-                // Send the final result
                 loadingMsg.edit {
                     content = """
-            ✨ **Visual Card Created!** ✨
-            **${savedCard.name}**
-            ⚔️ ATK: ${savedCard.attack} | 🛡️ DEF: ${savedCard.defense}
-            ⭐ ${savedCard.rarity}
-            
-            🎨 **FREE Visual Card Generated!**
-            
-            Use `/cards list` to see your collection!
-        """.trimIndent()
+                        ✨ **Visual Card Created!** ✨
+                        **${savedCard.name}**
+                        ⚔️ ATK: ${savedCard.attack} | 🛡️ DEF: ${savedCard.defense}
+                        ⭐ ${savedCard.rarity}
+                        
+                        ${if (testMode) "🎲 **Test Mode** - Smart filename analysis" else "🤖 **AI Mode** - OpenAI powered"}
+                        
+                        Use `/cards list` to see your collection!
+                    """.trimIndent()
                 }
 
-                // Send visual card using Path
                 message.channel.createMessage {
                     content = "🖼️ **Your Visual Trading Card:**"
                     addFile(tempFile)
                 }
 
-                // Clean up
                 tempFile.deleteIfExists()
 
             } catch (e: Exception) {
                 logger.error(e) { "Failed to generate visual card: ${e.message}" }
 
-                // Fallback to text-only if visual generation fails
                 loadingMsg.edit {
                     content = """
-            ✨ **Card Created!** ✨
-            **${savedCard.name}**
-            ⚔️ ATK: ${savedCard.attack} | 🛡️ DEF: ${savedCard.defense}
-            ⭐ ${savedCard.rarity}
-            
-            ⚠️ Visual generation failed, but your card stats are saved!
-            
-            Use `/cards list` to see your collection!
-        """.trimIndent()
+                        ✨ **Card Created!** ✨
+                        **${savedCard.name}**
+                        ⚔️ ATK: ${savedCard.attack} | 🛡️ DEF: ${savedCard.defense}
+                        ⭐ ${savedCard.rarity}
+                        
+                        ⚠️ Visual generation failed, but your card stats are saved!
+                        ${if (testMode) "🎲 Test Mode" else "🤖 AI Mode"}
+                    """.trimIndent()
                 }
             }
         } else {
-            // Standard text card without visual generation
             loadingMsg.edit {
                 content = """
                     ✨ **Card Created!** ✨
                     **${savedCard.name}**
                     ⚔️ ATK: ${savedCard.attack} | 🛡️ DEF: ${savedCard.defense}
                     ⭐ ${savedCard.rarity}
+                    
+                    ${if (testMode) "🎲 **Test Mode** - Smart analysis" else "🤖 **AI Mode** - OpenAI powered"}
                     
                     Use `/cards list` to see your collection!
                 """.trimIndent()
