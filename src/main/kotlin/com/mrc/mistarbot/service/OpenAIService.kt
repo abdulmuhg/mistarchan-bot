@@ -3,12 +3,11 @@ package com.mrc.mistarbot.service
 import com.mrc.mistarbot.model.Card
 import com.mrc.mistarbot.model.CardRarity
 import io.ktor.client.*
-import io.ktor.client.call.body
 import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
-import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.*
@@ -51,18 +50,23 @@ class OpenAIService(private val apiKey: String) {
                                                             """
                                             Analyze this image and create a trading card from it. Return ONLY a valid JSON object with these exact fields:
                                             {
-                                                "name": "A creative name for the card (max 30 chars)",
+                                                "name": "A creative name for the card (max 25 chars)",
                                                 "attack": 5,
                                                 "defense": 4,
-                                                "rarity": "RARE"
+                                                "rarity": "RARE",
+                                                "description": "A short, mysterious description that fits the image (max 80 chars)"
                                             }
                                             
                                             Rules:
-                                            - attack: number from 1-10
-                                            - defense: number from 1-10  
+                                            - name: Creative, thematic title (max 25 characters)
+                                            - attack: number from 1-10 based on perceived offensive power
+                                            - defense: number from 1-10 based on perceived defensive capability
                                             - rarity: exactly one of: COMMON, UNCOMMON, RARE, LEGENDARY
-                                            - Base values on the visual content and perceived power of the image
-                                            - Return ONLY the JSON, no other text
+                                            - description: Short, atmospheric text that describes the card's essence or power (max 80 characters)
+                                            
+                                            Base all values on the visual content and perceived power/theme of the image.
+                                            The description should be mystical, intriguing, or action-oriented.
+                                            Return ONLY the JSON, no other text.
                                         """.trimIndent()
                                                         )
                                                     )
@@ -148,6 +152,8 @@ class OpenAIService(private val apiKey: String) {
                     attack = cardData["attack"]?.jsonPrimitive?.int ?: 5,
                     defense = cardData["defense"]?.jsonPrimitive?.int ?: 5,
                     rarity = CardRarity.valueOf(cardData["rarity"]?.jsonPrimitive?.content ?: "COMMON"),
+                    description = cardData["description"]?.jsonPrimitive?.content
+                        ?: "A mysterious entity with unknown powers.",
                     ownerId = userId
                 )
             } catch (e: Exception) {

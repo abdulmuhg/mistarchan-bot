@@ -205,30 +205,32 @@ class CardImageGenerator {
         g2d.drawRoundRect(20, statsY, CARD_WIDTH - 40, 80, 15, 15)
 
         // Attack stat (left)
-        drawStatBox(g2d, "ATK", card.attack.toString(), 40, statsY + 20, Color.RED)
+        drawStatBox(g2d, "Attack", card.attack.toString(), 40, statsY + 20, Color.LIGHT_GRAY)
 
         // Defense stat (right)
-        drawStatBox(g2d, "DEF", card.defense.toString(), CARD_WIDTH - 120, statsY + 20, Color.BLUE)
+        drawStatBox(g2d, "Defense", card.defense.toString(), CARD_WIDTH - 120, statsY + 20, Color.LIGHT_GRAY)
 
-        // Stats vs indicator in center
-        g2d.color = Color.BLACK
-        g2d.font = Font("Arial", Font.BOLD, 24)
-        val vsText = "VS"
-        val fm = g2d.fontMetrics
-        val vsX = (CARD_WIDTH - fm.stringWidth(vsText)) / 2
-        g2d.drawString(vsText, vsX, statsY + 45)
+        // Divider line instead of "VS"
+        g2d.color = Color.DARK_GRAY
+        g2d.stroke = BasicStroke(3f)
+        val centerX = CARD_WIDTH / 2
+        g2d.drawLine(centerX, statsY + 25, centerX, statsY + 55)
+
+        // Optional: Add small decorative elements at top and bottom of divider
+        g2d.fillOval(centerX - 3, statsY + 22, 6, 6)
+        g2d.fillOval(centerX - 3, statsY + 52, 6, 6)
     }
 
-    private fun drawStatBox(g2d: Graphics2D, label: String, value: String, x: Int, y: Int, color: Color) {
+    private fun drawStatBox(g2d: Graphics2D, label: String, value: String, x: Int, y: Int, backgroundColor: Color) {
         val boxWidth = 80
         val boxHeight = 40
 
-        // Stat background
-        g2d.color = color.brighter().brighter()
+        // Stat background - use light gray
+        g2d.color = Color(220, 220, 220) // Light gray background
         g2d.fillRoundRect(x, y, boxWidth, boxHeight, 8, 8)
 
-        // Stat border
-        g2d.color = color
+        // Stat border - darker gray for contrast
+        g2d.color = Color(120, 120, 120)
         g2d.stroke = BasicStroke(2f)
         g2d.drawRoundRect(x, y, boxWidth, boxHeight, 8, 8)
 
