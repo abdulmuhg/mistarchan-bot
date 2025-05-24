@@ -35,15 +35,20 @@ class OpenAIService(private val apiKey: String) {
                     append("Content-Type", "application/json")
                 }
                 setBody(buildJsonObject {
-                    "model" to JsonPrimitive("gpt-4o-mini") // Updated model name
-                    "messages" to JsonArray(listOf(
-                        JsonObject(mapOf(
-                            "role" to JsonPrimitive("user"),
-                            "content" to JsonArray(listOf(
-                                JsonObject(mapOf(
-                                    "type" to JsonPrimitive("text"),
-                                    "text" to JsonPrimitive(
-                                        """
+                    put("model", "gpt-4o-mini")
+                    put(
+                        "messages", JsonArray(
+                            listOf(
+                                JsonObject(
+                                    mapOf(
+                                        "role" to JsonPrimitive("user"),
+                                        "content" to JsonArray(
+                                            listOf(
+                                                JsonObject(
+                                                    mapOf(
+                                                        "type" to JsonPrimitive("text"),
+                                                        "text" to JsonPrimitive(
+                                                            """
                                             Analyze this image and create a trading card from it. Return ONLY a valid JSON object with these exact fields:
                                             {
                                                 "name": "A creative name for the card (max 30 chars)",
@@ -59,23 +64,32 @@ class OpenAIService(private val apiKey: String) {
                                             - Base values on the visual content and perceived power of the image
                                             - Return ONLY the JSON, no other text
                                         """.trimIndent()
+                                                        )
+                                                    )
+                                                ),
+                                                JsonObject(
+                                                    mapOf(
+                                                        "type" to JsonPrimitive("image_url"),
+                                                        "image_url" to JsonObject(
+                                                            mapOf(
+                                                                "url" to JsonPrimitive(imageUrl)
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
                                     )
-                                )),
-                                JsonObject(mapOf(
-                                    "type" to JsonPrimitive("image_url"),
-                                    "image_url" to JsonObject(mapOf(
-                                        "url" to JsonPrimitive(imageUrl)
-                                    ))
-                                ))
-                            ))
-                        ))
-                    ))
-                    "max_tokens" to JsonPrimitive(300)
+                                )
+                            )
+                        )
+                    )
+                    put("max_tokens", 300)
                 })
             }
 
             logger.info { "Received response from OpenAI, status: ${response.status}" }
-            
+
             // Log the raw response for debugging
             val responseText = response.bodyAsText()
             logger.info { "OpenAI response: $responseText" }
@@ -85,7 +99,7 @@ class OpenAIService(private val apiKey: String) {
                 val errorResponse = Json.decodeFromString<JsonObject>(responseText)
                 val errorMessage = errorResponse["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content
                     ?: "Unknown error occurred"
-                
+
                 when (response.status.value) {
                     429 -> throw OpenAIException("OpenAI API quota exceeded. Please check your billing details.")
                     401 -> throw OpenAIException("Invalid OpenAI API key.")
