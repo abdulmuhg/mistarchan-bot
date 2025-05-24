@@ -18,23 +18,26 @@ repositories {
 dependencies {
     // Kord for Discord bot functionality
     implementation("dev.kord:kord-core:0.13.1")
-    
+
     // SQLite and database functionality
     implementation("org.xerial:sqlite-jdbc:3.44.1.0")
     implementation("org.jetbrains.exposed:exposed-core:0.47.0")
     implementation("org.jetbrains.exposed:exposed-dao:0.47.0")
     implementation("org.jetbrains.exposed:exposed-jdbc:0.47.0")
-    
+
     // HTTP client for OpenAI API calls
     implementation("io.ktor:ktor-client-core:2.3.7")
     implementation("io.ktor:ktor-client-cio:2.3.7")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
-    
+
+    // Image processing for visual card generation (NEW)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.7.3")
+
     // Logging
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
     implementation("ch.qos.logback:logback-classic:1.4.14")
-    
+
     // Testing
     testImplementation(kotlin("test"))
     testImplementation("io.mockk:mockk:1.13.9")
