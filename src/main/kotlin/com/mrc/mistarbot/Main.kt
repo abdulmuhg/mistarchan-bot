@@ -95,9 +95,11 @@ suspend fun main() {
                 "cards" -> commandHandler.handleCardsCommand(interaction, response)
                 "card" -> commandHandler.handleCardCommand(interaction, response)
                 "challenge" -> commandHandler.handleChallengeCommand(interaction, response)
+                "practice" -> commandHandler.handlePracticeCommand(interaction, response)
                 "play" -> commandHandler.handlePlayCommand(interaction, response)
+                "battle" -> commandHandler.handleBattleStatusCommand(interaction, response) // NEW
                 "help" -> commandHandler.handleHelpCommand(response)
-                // NEW: Admin commands
+                // Admin commands
                 "clear" -> handleClearCommand(interaction, response, adminUserId)
                 "status" -> handleStatusCommand(interaction, response, testMode, visualMode)
                 else -> {
@@ -247,6 +249,18 @@ private fun dev.kord.rest.builder.interaction.MultiApplicationCommandBuilder.cre
         }
     }
 
+    // NEW: Practice battle with AI
+    input("practice", "Practice battle against AI opponent") {
+        string("difficulty", "AI difficulty level") {
+            choice("easy", "easy")
+            choice("medium", "medium")
+            choice("hard", "hard")
+            choice("aggressive", "aggressive")
+            choice("defensive", "defensive")
+            required = false
+        }
+    }
+
     input("play", "Make a move in an active battle") {
         integer("card_id", "The ID of the card to play") {
             required = true
@@ -258,9 +272,12 @@ private fun dev.kord.rest.builder.interaction.MultiApplicationCommandBuilder.cre
         }
     }
 
+    // NEW: Battle status command
+    input("battle", "Check current battle status and remaining cards")
+
     input("help", "Show bot commands and usage information")
 
-    // NEW: Admin commands
+    // Admin commands
     input("clear", "Clear your card collection (admin: clear all)")
     input("status", "Show bot status and configuration")
 }
