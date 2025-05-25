@@ -5,13 +5,17 @@ import com.mrc.mistarbot.game.Battle
 import com.mrc.mistarbot.game.BattlePosition
 import com.mrc.mistarbot.game.BattleUpdateResult
 import com.mrc.mistarbot.model.Card
+import com.mrc.mistarbot.service.CardImageGenerator
 import dev.kord.core.entity.interaction.GuildChatInputCommandInteraction
 import dev.kord.core.behavior.interaction.response.DeferredPublicMessageInteractionResponseBehavior
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.behavior.channel.createMessage
+import dev.kord.rest.builder.message.addFile
 import kotlinx.coroutines.*
 import kotlin.random.Random
 import mu.KotlinLogging
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.writeBytes
 
 private val logger = KotlinLogging.logger {}
 
@@ -432,7 +436,7 @@ class SlashCommandHandler(
                     }
 
                     if (isMockBattle) {
-                        handleMockUserMove(battle, channelId, interaction)
+                        handleMockUserMove(battle, channelId, interaction, response)
                     }
                 }
 
@@ -446,7 +450,7 @@ class SlashCommandHandler(
                         content = """
                             🎯 **ROUND ${result.roundResult.roundNumber} RESULTS**
                             
-                            ${formatRoundResult(result.roundResult, battle, playerId, mockUser)}
+                            ${formatRoundResultWithImage(result.roundResult, battle, playerId, mockUser, interaction)}
                             
                             **📊 Score Update:**
                             • **You:** $playerScore ${if (isPlayerWin) "📈 +1" else ""}
@@ -527,10 +531,102 @@ class SlashCommandHandler(
         }
     }
 
+    private suspend fun formatRoundResultWithImage(
+        roundResult: com.mrc.mistarbot.game.RoundResult,
+        battle: Battle,
+        playerId: String,
+        mockUser: MockUser?,
+        interaction: GuildChatInputCommandInteraction
+    ): String {
+        val playerMove = if (roundResult.playerAMove.playerId == playerId) roundResult.playerAMove else roundResult.playerBMove
+        val opponentMove = if (roundResult.playerAMove.playerId == playerId) roundResult.playerBMove else roundResult.playerAMove
+
+        val isPlayerWin = roundResult.winner == playerId
+        val isTie = roundResult.winner == null
+        val opponentName = mockUser?.let { mockUserService.getMockUserDisplayName(it) } ?: "Opponent"
+
+        // Generate battle scene image ONLY ONCE with proper names
+        try {
+            val cardGenerator = CardImageGenerator()
+            val battleSceneBytes = cardGenerator.generateBattleScene(
+                playerCard = playerMove.card,
+                playerPosition = playerMove.position,
+                opponentCard = opponentMove.card,
+                opponentPosition = opponentMove.position,
+                roundNumber = roundResult.roundNumber,
+                winner = when {
+                    isPlayerWin -> "player"
+                    isTie -> null
+                    else -> "opponent"
+                },
+                isRevealed = true,
+                playerName = "You",
+                opponentName = opponentName,
+                arenaStyle = null // null = random arena each battle
+            )
+
+            // Save and send battle scene
+            val tempFile = kotlin.io.path.createTempFile("battle_r${roundResult.roundNumber}", ".png")
+            tempFile.writeBytes(battleSceneBytes)
+
+            interaction.channel.createMessage {
+                content = "⚔️ **BATTLE SCENE - Round ${roundResult.roundNumber}**"
+                addFile(tempFile)
+            }
+
+            tempFile.deleteIfExists()
+
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to generate battle scene image" }
+        }
+
+        return buildString {
+            appendLine("🎯 **Round ${roundResult.roundNumber} Results**")
+
+            // Combat analysis
+            when {
+                playerMove.position == BattlePosition.ATTACK && opponentMove.position == BattlePosition.ATTACK -> {
+                    appendLine("⚔️ **Attack vs Attack:** ${playerMove.card.attack} vs ${opponentMove.card.attack}")
+                }
+                playerMove.position == BattlePosition.ATTACK && opponentMove.position == BattlePosition.DEFENSE -> {
+                    appendLine("⚔️🛡️ **Attack vs Defense:** ${playerMove.card.attack} vs ${opponentMove.card.defense}")
+                }
+                playerMove.position == BattlePosition.DEFENSE && opponentMove.position == BattlePosition.ATTACK -> {
+                    appendLine("🛡️⚔️ **Defense vs Attack:** ${playerMove.card.defense} vs ${opponentMove.card.attack}")
+                }
+                else -> {
+                    appendLine("🛡️🛡️ **Defense vs Defense:** Always a tie")
+                }
+            }
+
+            // Result
+            when {
+                isPlayerWin -> appendLine("🏆 **You win this round!**")
+                isTie -> appendLine("🤝 **Round tied - no points!**")
+                else -> appendLine("💔 **You lose this round!**")
+            }
+
+            // AI taunt
+            mockUser?.let {
+                val taunt = mockUserService.getTrashTalkMessage(it,
+                    when {
+                        isPlayerWin -> "round_loss"
+                        isTie -> "round_tie"
+                        else -> "round_win"
+                    }
+                )
+                appendLine()
+                appendLine("> *\"$taunt\"*")
+            }
+        }
+    }
+
+
     private suspend fun handleMockUserMove(
         battle: Battle,
         channelId: String,
-        interaction: GuildChatInputCommandInteraction
+        interaction: GuildChatInputCommandInteraction,
+        response: DeferredPublicMessageInteractionResponseBehavior
     ) {
         val mockUser = activeMockBattles[channelId]
         if (mockUser == null) {
@@ -538,12 +634,9 @@ class SlashCommandHandler(
             return
         }
 
-        // Launch AI move in background
         CoroutineScope(Dispatchers.Default).launch {
             try {
                 logger.info { "🤖 AI is thinking..." }
-
-                // AI thinking delay
                 delay(Random.nextLong(2000, 4000))
 
                 val availableCards = battle.getAvailableCards(mockUser.id)
@@ -562,7 +655,6 @@ class SlashCommandHandler(
 
                 logger.info { "🤖 AI chose: ${chosenCard.name} in $chosenPosition position" }
 
-                // Submit AI move
                 val result = battle.submitMove(mockUser.id, chosenCard.id, chosenPosition)
                 logger.info { "🤖 AI move result: ${result::class.simpleName}" }
 
@@ -575,26 +667,33 @@ class SlashCommandHandler(
                         val isPlayerWin = result.roundResult.winner == interaction.user.id.toString()
                         val aiName = mockUserService.getMockUserDisplayName(mockUser)
 
+                        // Use the SAME image generation method - NO MORE DUPLICATES!
+                        val roundAnalysis = formatRoundResultWithImage(
+                            result.roundResult,
+                            battle,
+                            interaction.user.id.toString(),
+                            mockUser,
+                            interaction
+                        )
+
                         interaction.channel.createMessage {
                             content = """
-                                🎯 **ROUND ${result.roundResult.roundNumber} RESULTS**
-                                
-                                ${formatRoundResult(result.roundResult, battle, interaction.user.id.toString(), mockUser)}
-                                
-                                **📊 Score Update:**
-                                • **You:** $playerScore ${if (isPlayerWin) "📈 +1" else ""}
-                                • **$aiName:** $aiScore ${if (!isPlayerWin && result.roundResult.winner != null) "📈 +1" else ""}
-                                
-                                ${if (battle.getRoundsLeft() > 0)
+                            $roundAnalysis
+                            
+                            **📊 Score Update:**
+                            • **You:** $playerScore ${if (isPlayerWin) "📈 +1" else ""}
+                            • **$aiName:** $aiScore ${if (!isPlayerWin && result.roundResult.winner != null) "📈 +1" else ""}
+                            
+                            ${if (battle.getRoundsLeft() > 0)
                                 "**▶️ Round ${result.nextRound} Starting!**\nChoose your next move with `/play <card_id> <attack/defense>`"
                             else ""}
-                            """.trimIndent()
+                        """.trimIndent()
                         }
                     }
 
                     is BattleUpdateResult.BattleComplete -> {
                         logger.info { "🏆 Battle complete!" }
-                        handleMockBattleComplete(result, mockUser, battle, channelId, interaction)
+                        handleMockBattleCompleteWithImage(result, mockUser, battle, channelId, interaction)
                     }
 
                     is BattleUpdateResult.Error -> {
@@ -614,24 +713,105 @@ class SlashCommandHandler(
 
             } catch (e: Exception) {
                 logger.error(e) { "💥 Critical error in AI move: ${e.message}" }
-                logger.error(e) { "Stack trace: ${e.stackTraceToString()}" }
 
-                // Send error message to user
                 try {
                     interaction.channel.createMessage {
                         content = """
-                            ❌ **AI Error!**
-                            
-                            The AI opponent encountered an error: ${e.message}
-                            
-                            You can continue by using `/battle` to check status or start a new practice battle.
-                        """.trimIndent()
+                        ❌ **AI Error!**
+                        
+                        The AI opponent encountered an error: ${e.message}
+                        
+                        You can continue by using `/battle` to check status or start a new practice battle.
+                    """.trimIndent()
                     }
                 } catch (msgError: Exception) {
                     logger.error(msgError) { "Failed to send error message to user" }
                 }
             }
         }
+    }
+
+    private suspend fun handleMockBattleCompleteWithImage(
+        result: BattleUpdateResult.BattleComplete,
+        mockUser: MockUser,
+        battle: Battle,
+        channelId: String,
+        interaction: GuildChatInputCommandInteraction
+    ) {
+        val finalResult = result.battleResult
+        val playerWon = finalResult.winner == interaction.user.id.toString()
+        val aiName = mockUserService.getMockUserDisplayName(mockUser)
+
+        // Generate final battle scene with winner highlighted
+        try {
+            val playerMove = if (result.finalRound.playerAMove.playerId == interaction.user.id.toString())
+                result.finalRound.playerAMove else result.finalRound.playerBMove
+            val opponentMove = if (result.finalRound.playerAMove.playerId == interaction.user.id.toString())
+                result.finalRound.playerBMove else result.finalRound.playerAMove
+
+            val cardGenerator = CardImageGenerator()
+            val finalBattleSceneBytes = cardGenerator.generateBattleScene(
+                playerCard = playerMove.card,
+                playerPosition = playerMove.position,
+                opponentCard = opponentMove.card,
+                opponentPosition = opponentMove.position,
+                roundNumber = result.finalRound.roundNumber,
+                winner = when {
+                    playerWon -> "player"
+                    finalResult.winner == null -> null
+                    else -> "opponent"
+                },
+                isRevealed = true,
+                playerName = "You",
+                opponentName = aiName
+            )
+
+            // Save and send final battle scene
+            val tempFile = kotlin.io.path.createTempFile("final_battle", ".png")
+            tempFile.writeBytes(finalBattleSceneBytes)
+
+            interaction.channel.createMessage {
+                content = "🏆 **FINAL BATTLE SCENE**"
+                addFile(tempFile)
+            }
+
+            tempFile.deleteIfExists()
+
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to generate final battle scene image" }
+        }
+
+        val finalTaunt = mockUserService.getTrashTalkMessage(
+            mockUser,
+            if (playerWon) "battle_loss" else "battle_victory"
+        )
+
+        interaction.channel.createMessage {
+            content = """
+            🏆 **PRACTICE BATTLE COMPLETE!**
+            
+            **🎊 FINAL RESULTS:**
+            **Winner: ${if (playerWon) "You" else aiName}** ${if (playerWon) "🥇" else "🤖"}
+            
+            **📊 Final Score:** You ${finalResult.playerAScore} - ${finalResult.playerBScore} $aiName
+            
+            **📋 Battle Summary:**
+            • **Rounds Played:** ${finalResult.rounds.size}/3
+            • **Your Wins:** ${finalResult.playerAScore}
+            • **AI Wins:** ${finalResult.playerBScore}
+            • **Reason:** ${finalResult.battleEndReason}
+            
+            > *"$finalTaunt"*
+            
+            ${if (playerWon) "🎉 **Victory!** Great strategy!" else "🎯 **Good practice!** Try different tactics next time!"}
+            
+            Ready for another? `/practice` or `/challenge @user`
+        """.trimIndent()
+        }
+
+        // Cleanup
+        activeGames.remove(channelId)
+        activeMockBattles.remove(channelId)
     }
 
     private suspend fun handleMockBattleComplete(
@@ -654,7 +834,7 @@ class SlashCommandHandler(
             content = """
                 🏆 **PRACTICE BATTLE COMPLETE!**
                 
-                ${formatRoundResult(result.finalRound, mockUser, battle, interaction.user.id.toString())}
+                ${formatRoundResultWithImage(result.finalRound, battle, interaction.user.id.toString(), mockUser, interaction)}
                 
                 **🎊 FINAL RESULTS:**
                 **Winner: ${if (playerWon) "You" else aiName}** ${if (playerWon) "🥇" else "🤖"}
