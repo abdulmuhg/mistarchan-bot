@@ -1,8 +1,8 @@
 package com.mrc.mistarbot.service
 
+import com.mrc.mistarbot.game.BattlePosition
 import com.mrc.mistarbot.model.Card
 import com.mrc.mistarbot.model.CardRarity
-import com.mrc.mistarbot.game.BattlePosition
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
@@ -281,7 +281,14 @@ class CardImageGenerator {
         g2d.drawString("?", questionX, questionY)
     }
 
-    private fun drawPositionIndicator(g2d: Graphics2D, x: Int, y: Int, position: BattlePosition, isWinner: Boolean, isLoser: Boolean = false) {
+    private fun drawPositionIndicator(
+        g2d: Graphics2D,
+        x: Int,
+        y: Int,
+        position: BattlePosition,
+        isWinner: Boolean,
+        isLoser: Boolean = false
+    ) {
         val indicatorY = y + BATTLE_CARD_HEIGHT + 10
         val indicatorColor = when {
             isWinner -> Color.YELLOW

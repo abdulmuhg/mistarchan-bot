@@ -173,6 +173,7 @@ class TestCardService {
                         else if (Random.nextFloat() < 0.4) CardRarity.EPIC
                         else CardRarity.RARE
                     }
+
                     baseRarity >= CardRarity.RARE || Random.nextFloat() < 0.4 -> CardRarity.RARE
                     else -> CardRarity.UNCOMMON
                 }
@@ -185,6 +186,7 @@ class TestCardService {
                     baseRarity >= CardRarity.EPIC || Random.nextFloat() < 0.15 -> {
                         if (Random.nextFloat() < 0.3) CardRarity.EPIC else CardRarity.RARE
                     }
+
                     baseRarity >= CardRarity.RARE || Random.nextFloat() < 0.35 -> CardRarity.RARE
                     else -> CardRarity.UNCOMMON
                 }
@@ -197,6 +199,7 @@ class TestCardService {
                     baseRarity >= CardRarity.EPIC || Random.nextFloat() < 0.12 -> {
                         if (Random.nextFloat() < 0.25) CardRarity.EPIC else CardRarity.RARE
                     }
+
                     baseRarity >= CardRarity.RARE || Random.nextFloat() < 0.3 -> CardRarity.RARE
                     else -> CardRarity.UNCOMMON
                 }
@@ -217,6 +220,7 @@ class TestCardService {
                     baseRarity >= CardRarity.EPIC || Random.nextFloat() < 0.2 -> {
                         if (Random.nextFloat() < 0.15) CardRarity.LEGENDARY else CardRarity.EPIC
                     }
+
                     baseRarity >= CardRarity.RARE || Random.nextFloat() < 0.4 -> CardRarity.RARE
                     else -> CardRarity.UNCOMMON
                 }
@@ -228,6 +232,7 @@ class TestCardService {
                     baseRarity >= CardRarity.RARE || Random.nextFloat() < 0.3 -> {
                         if (Random.nextFloat() < 0.1) CardRarity.EPIC else CardRarity.RARE
                     }
+
                     else -> CardRarity.UNCOMMON
                 }
             }

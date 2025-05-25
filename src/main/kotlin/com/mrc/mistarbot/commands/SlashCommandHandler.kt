@@ -6,16 +6,19 @@ import com.mrc.mistarbot.game.BattlePosition
 import com.mrc.mistarbot.game.BattleUpdateResult
 import com.mrc.mistarbot.model.Card
 import com.mrc.mistarbot.service.CardImageGenerator
-import dev.kord.core.entity.interaction.GuildChatInputCommandInteraction
+import dev.kord.core.behavior.channel.createMessage
 import dev.kord.core.behavior.interaction.response.DeferredPublicMessageInteractionResponseBehavior
 import dev.kord.core.behavior.interaction.response.respond
-import dev.kord.core.behavior.channel.createMessage
+import dev.kord.core.entity.interaction.GuildChatInputCommandInteraction
 import dev.kord.rest.builder.message.addFile
-import kotlinx.coroutines.*
-import kotlin.random.Random
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.writeBytes
+import kotlin.random.Random
 
 private val logger = KotlinLogging.logger {}
 
@@ -90,6 +93,7 @@ class SlashCommandHandler(
                         }
                     }
                 }
+
                 else -> {
                     response.respond {
                         content = "❌ Unknown action. Use `list` to view your cards."
@@ -125,7 +129,9 @@ class SlashCommandHandler(
                     content = """
                         ❌ **Card #$cardId not found**
                         
-                        💡 **Your cards:** ${if (cards.isEmpty()) "None yet!" else cards.take(3).joinToString { "#${it.id}" }}
+                        💡 **Your cards:** ${
+                        if (cards.isEmpty()) "None yet!" else cards.take(3).joinToString { "#${it.id}" }
+                    }
                         Use `/cards list` to see all cards.
                     """.trimIndent()
                 }
@@ -442,8 +448,10 @@ class SlashCommandHandler(
 
                 is BattleUpdateResult.RoundComplete -> {
                     val mockUser = activeMockBattles[channelId]
-                    val playerScore = if (playerId == battle.playerAId) battle.getPlayerAScore() else battle.getPlayerBScore()
-                    val opponentScore = if (playerId == battle.playerAId) battle.getPlayerBScore() else battle.getPlayerAScore()
+                    val playerScore =
+                        if (playerId == battle.playerAId) battle.getPlayerAScore() else battle.getPlayerBScore()
+                    val opponentScore =
+                        if (playerId == battle.playerAId) battle.getPlayerBScore() else battle.getPlayerAScore()
                     val isPlayerWin = result.roundResult.winner == playerId
 
                     response.respond {
@@ -456,9 +464,11 @@ class SlashCommandHandler(
                             • **You:** $playerScore ${if (isPlayerWin) "📈 +1" else ""}
                             • **${mockUser?.let { mockUserService.getMockUserDisplayName(it) } ?: "Opponent"}:** $opponentScore ${if (!isPlayerWin && result.roundResult.winner != null) "📈 +1" else ""}
                             
-                            ${if (battle.getRoundsLeft() > 0)
-                            "**▶️ Round ${result.nextRound} Starting!**\nChoose your next move!"
-                        else ""}
+                            ${
+                            if (battle.getRoundsLeft() > 0)
+                                "**▶️ Round ${result.nextRound} Starting!**\nChoose your next move!"
+                            else ""
+                        }
                         """.trimIndent()
                     }
                 }
@@ -479,8 +489,10 @@ class SlashCommandHandler(
         playerId: String,
         mockUser: MockUser?
     ): String {
-        val playerMove = if (roundResult.playerAMove.playerId == playerId) roundResult.playerAMove else roundResult.playerBMove
-        val opponentMove = if (roundResult.playerAMove.playerId == playerId) roundResult.playerBMove else roundResult.playerAMove
+        val playerMove =
+            if (roundResult.playerAMove.playerId == playerId) roundResult.playerAMove else roundResult.playerBMove
+        val opponentMove =
+            if (roundResult.playerAMove.playerId == playerId) roundResult.playerBMove else roundResult.playerAMove
 
         val opponentName = mockUser?.let { mockUserService.getMockUserDisplayName(it) } ?: "Opponent"
         val isPlayerWin = roundResult.winner == playerId
@@ -498,12 +510,15 @@ class SlashCommandHandler(
                 playerMove.position == BattlePosition.ATTACK && opponentMove.position == BattlePosition.ATTACK -> {
                     appendLine("⚔️ **Attack vs Attack:** ${playerMove.card.attack} vs ${opponentMove.card.attack}")
                 }
+
                 playerMove.position == BattlePosition.ATTACK && opponentMove.position == BattlePosition.DEFENSE -> {
                     appendLine("⚔️🛡️ **Attack vs Defense:** ${playerMove.card.attack} vs ${opponentMove.card.defense}")
                 }
+
                 playerMove.position == BattlePosition.DEFENSE && opponentMove.position == BattlePosition.ATTACK -> {
                     appendLine("🛡️⚔️ **Defense vs Attack:** ${playerMove.card.defense} vs ${opponentMove.card.attack}")
                 }
+
                 else -> {
                     appendLine("🛡️🛡️ **Defense vs Defense:** Always a tie")
                 }
@@ -518,7 +533,8 @@ class SlashCommandHandler(
 
             // Add AI taunt if it's a mock battle
             mockUser?.let {
-                val taunt = mockUserService.getTrashTalkMessage(it,
+                val taunt = mockUserService.getTrashTalkMessage(
+                    it,
                     when {
                         isPlayerWin -> "round_loss"
                         isTie -> "round_tie"
@@ -538,8 +554,10 @@ class SlashCommandHandler(
         mockUser: MockUser?,
         interaction: GuildChatInputCommandInteraction
     ): String {
-        val playerMove = if (roundResult.playerAMove.playerId == playerId) roundResult.playerAMove else roundResult.playerBMove
-        val opponentMove = if (roundResult.playerAMove.playerId == playerId) roundResult.playerBMove else roundResult.playerAMove
+        val playerMove =
+            if (roundResult.playerAMove.playerId == playerId) roundResult.playerAMove else roundResult.playerBMove
+        val opponentMove =
+            if (roundResult.playerAMove.playerId == playerId) roundResult.playerBMove else roundResult.playerAMove
 
         val isPlayerWin = roundResult.winner == playerId
         val isTie = roundResult.winner == null
@@ -588,12 +606,15 @@ class SlashCommandHandler(
                 playerMove.position == BattlePosition.ATTACK && opponentMove.position == BattlePosition.ATTACK -> {
                     appendLine("⚔️ **Attack vs Attack:** ${playerMove.card.attack} vs ${opponentMove.card.attack}")
                 }
+
                 playerMove.position == BattlePosition.ATTACK && opponentMove.position == BattlePosition.DEFENSE -> {
                     appendLine("⚔️🛡️ **Attack vs Defense:** ${playerMove.card.attack} vs ${opponentMove.card.defense}")
                 }
+
                 playerMove.position == BattlePosition.DEFENSE && opponentMove.position == BattlePosition.ATTACK -> {
                     appendLine("🛡️⚔️ **Defense vs Attack:** ${playerMove.card.defense} vs ${opponentMove.card.attack}")
                 }
+
                 else -> {
                     appendLine("🛡️🛡️ **Defense vs Defense:** Always a tie")
                 }
@@ -608,7 +629,8 @@ class SlashCommandHandler(
 
             // AI taunt
             mockUser?.let {
-                val taunt = mockUserService.getTrashTalkMessage(it,
+                val taunt = mockUserService.getTrashTalkMessage(
+                    it,
                     when {
                         isPlayerWin -> "round_loss"
                         isTie -> "round_tie"
@@ -684,9 +706,11 @@ class SlashCommandHandler(
                             • **You:** $playerScore ${if (isPlayerWin) "📈 +1" else ""}
                             • **$aiName:** $aiScore ${if (!isPlayerWin && result.roundResult.winner != null) "📈 +1" else ""}
                             
-                            ${if (battle.getRoundsLeft() > 0)
-                                "**▶️ Round ${result.nextRound} Starting!**\nChoose your next move with `/play <card_id> <attack/defense>`"
-                            else ""}
+                            ${
+                                if (battle.getRoundsLeft() > 0)
+                                    "**▶️ Round ${result.nextRound} Starting!**\nChoose your next move with `/play <card_id> <attack/defense>`"
+                                else ""
+                            }
                         """.trimIndent()
                         }
                     }
@@ -834,7 +858,15 @@ class SlashCommandHandler(
             content = """
                 🏆 **PRACTICE BATTLE COMPLETE!**
                 
-                ${formatRoundResultWithImage(result.finalRound, battle, interaction.user.id.toString(), mockUser, interaction)}
+                ${
+                formatRoundResultWithImage(
+                    result.finalRound,
+                    battle,
+                    interaction.user.id.toString(),
+                    mockUser,
+                    interaction
+                )
+            }
                 
                 **🎊 FINAL RESULTS:**
                 **Winner: ${if (playerWon) "You" else aiName}** ${if (playerWon) "🥇" else "🤖"}
@@ -860,7 +892,8 @@ class SlashCommandHandler(
         battle: Battle,
         playerId: String
     ): String {
-        return finalRound.description.replace("Player A", "You").replace("Player B", mockUserService.getMockUserDisplayName(mockUser))
+        return finalRound.description.replace("Player A", "You")
+            .replace("Player B", mockUserService.getMockUserDisplayName(mockUser))
     }
 
     private suspend fun handleBattleComplete(
@@ -919,7 +952,13 @@ class SlashCommandHandler(
                     📊 **Battle Status**
                     
                     **⚔️ Current Round:** ${battle.getCurrentRound()}/3
-                    **📈 Score:** You ${if (playerId == battle.playerAId) battle.getPlayerAScore() else battle.getPlayerBScore()} - ${if (playerId == battle.playerAId) battle.getPlayerBScore() else battle.getPlayerAScore()} ${if (isMockBattle) mockUser?.let { mockUserService.getMockUserDisplayName(it) } ?: "AI" else "Opponent"}
+                    **📈 Score:** You ${if (playerId == battle.playerAId) battle.getPlayerAScore() else battle.getPlayerBScore()} - ${if (playerId == battle.playerAId) battle.getPlayerBScore() else battle.getPlayerAScore()} ${
+                    if (isMockBattle) mockUser?.let {
+                        mockUserService.getMockUserDisplayName(
+                            it
+                        )
+                    } ?: "AI" else "Opponent"
+                }
                     
                     **🎴 Your Remaining Cards:**
                     ${playerCards.joinToString("\n") { "• **[${it.id}]** ${it.name} `⚔️${it.attack} 🛡️${it.defense}`" }}
@@ -1008,18 +1047,58 @@ class MockUserService {
         val cards = mutableListOf<Card>()
         repeat(Random.nextInt(5, 8)) { index ->
             val card = when (personality) {
-                BattlePersonality.AGGRESSIVE -> generateCard(userId, index, 6..10, 1..5, "Flame Warrior,Thunder Strike,Blade Master".split(","))
-                BattlePersonality.DEFENSIVE -> generateCard(userId, index, 1..5, 6..10, "Iron Shield,Stone Guardian,Fortress Wall".split(","))
-                BattlePersonality.BALANCED -> generateCard(userId, index, 4..7, 4..7, "Mystic Knight,Elemental Spirit,Balance Walker".split(","))
-                BattlePersonality.SMART -> generateCard(userId, index, 3..9, 3..9, "Strategy Master,Chess Grandmaster,Tactical Genius".split(","))
-                BattlePersonality.CHAOTIC -> generateCard(userId, index, 1..10, 1..10, "Chaos Bringer,Random Force,Wild Card".split(","))
+                BattlePersonality.AGGRESSIVE -> generateCard(
+                    userId,
+                    index,
+                    6..10,
+                    1..5,
+                    "Flame Warrior,Thunder Strike,Blade Master".split(",")
+                )
+
+                BattlePersonality.DEFENSIVE -> generateCard(
+                    userId,
+                    index,
+                    1..5,
+                    6..10,
+                    "Iron Shield,Stone Guardian,Fortress Wall".split(",")
+                )
+
+                BattlePersonality.BALANCED -> generateCard(
+                    userId,
+                    index,
+                    4..7,
+                    4..7,
+                    "Mystic Knight,Elemental Spirit,Balance Walker".split(",")
+                )
+
+                BattlePersonality.SMART -> generateCard(
+                    userId,
+                    index,
+                    3..9,
+                    3..9,
+                    "Strategy Master,Chess Grandmaster,Tactical Genius".split(",")
+                )
+
+                BattlePersonality.CHAOTIC -> generateCard(
+                    userId,
+                    index,
+                    1..10,
+                    1..10,
+                    "Chaos Bringer,Random Force,Wild Card".split(",")
+                )
             }
             cards.add(card)
         }
         return cards
     }
 
-    private fun generateCard(userId: String, index: Int, atkRange: IntRange, defRange: IntRange, names: List<String>): Card {
+    private fun generateCard(
+        userId: String,
+        index: Int,
+        atkRange: IntRange,
+        defRange: IntRange,
+        names: List<String>
+    ): Card {
         return Card(
             id = index + 1000,
             name = names.random(),
@@ -1040,11 +1119,18 @@ class MockUserService {
         else -> com.mrc.mistarbot.model.CardRarity.LEGENDARY
     }
 
-    fun chooseBattleMove(mockUser: MockUser, availableCards: List<Card>, roundNumber: Int, currentScore: Pair<Int, Int>): Pair<Card, BattlePosition> {
+    fun chooseBattleMove(
+        mockUser: MockUser,
+        availableCards: List<Card>,
+        roundNumber: Int,
+        currentScore: Pair<Int, Int>
+    ): Pair<Card, BattlePosition> {
         val card = when (mockUser.personality) {
             BattlePersonality.AGGRESSIVE -> availableCards.maxByOrNull { it.attack } ?: availableCards.random()
             BattlePersonality.DEFENSIVE -> availableCards.maxByOrNull { it.defense } ?: availableCards.random()
-            BattlePersonality.BALANCED -> availableCards.maxByOrNull { it.attack + it.defense } ?: availableCards.random()
+            BattlePersonality.BALANCED -> availableCards.maxByOrNull { it.attack + it.defense }
+                ?: availableCards.random()
+
             BattlePersonality.SMART -> {
                 val (mockScore, opponentScore) = currentScore
                 when {
@@ -1053,6 +1139,7 @@ class MockUserService {
                     else -> availableCards.maxByOrNull { it.attack + it.defense }
                 } ?: availableCards.random()
             }
+
             BattlePersonality.CHAOTIC -> availableCards.random()
         }
 
@@ -1068,6 +1155,7 @@ class MockUserService {
                     else -> if (card.attack >= card.defense) BattlePosition.ATTACK else BattlePosition.DEFENSE
                 }
             }
+
             BattlePersonality.CHAOTIC -> if (Random.nextBoolean()) BattlePosition.ATTACK else BattlePosition.DEFENSE
         }
 
@@ -1082,14 +1170,31 @@ class MockUserService {
             BattlePersonality.SMART -> "🧠"
             BattlePersonality.CHAOTIC -> "🎲"
         }
-        return "$emoji ${mockUser.name.split("_").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }}"
+        return "$emoji ${
+            mockUser.name.split("_").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
+        }"
     }
 
     fun getTrashTalkMessage(mockUser: MockUser, context: String): String {
         val messages = when (mockUser.personality) {
-            BattlePersonality.AGGRESSIVE -> listOf("🔥 Time to heat things up!", "⚔️ Prepare for destruction!", "💥 This ends now!")
-            BattlePersonality.DEFENSIVE -> listOf("🛡️ Unbreakable defense!", "🏰 None shall pass!", "⚖️ Patience wins wars.")
-            BattlePersonality.BALANCED -> listOf("⚖️ Harmony prevails.", "🧘 Balance in all things.", "🎯 Calculated moves.")
+            BattlePersonality.AGGRESSIVE -> listOf(
+                "🔥 Time to heat things up!",
+                "⚔️ Prepare for destruction!",
+                "💥 This ends now!"
+            )
+
+            BattlePersonality.DEFENSIVE -> listOf(
+                "🛡️ Unbreakable defense!",
+                "🏰 None shall pass!",
+                "⚖️ Patience wins wars."
+            )
+
+            BattlePersonality.BALANCED -> listOf(
+                "⚖️ Harmony prevails.",
+                "🧘 Balance in all things.",
+                "🎯 Calculated moves."
+            )
+
             BattlePersonality.SMART -> listOf("🧠 Victory calculated.", "🔍 Moves predicted.", "📊 Odds favor me.")
             BattlePersonality.CHAOTIC -> listOf("🎲 Chaos unleashed!", "🌀 Expect madness!", "🃏 Wild card time!")
         }

@@ -152,14 +152,36 @@ suspend fun main() {
                 }
             }
 
-            // NEW: Clear database command
             "!clear-db" -> {
                 if (adminUserId != null && message.author?.id.toString() == adminUserId) {
-                    Database.clearAllCards()
-                    message.channel.createMessage("🗑️ Database cleared! All cards removed.")
+                    val deletedCount = Database.clearAllCards()
+                    message.channel.createMessage("🗑️ **Admin Action:** Cleared $deletedCount cards from database!")
                 } else {
                     message.channel.createMessage("❌ Only admin can clear the database.")
                 }
+            }
+
+            "!db-stats" -> {
+                val totalCards = Database.getTotalCardCount()
+                val cardsByRarity = Database.getCardCountByRarity()
+                val topOwners = Database.getTopCardOwners(5)
+
+                message.channel.createMessage(
+                    """
+            📊 **Database Statistics:**
+            
+            **📋 Total Cards:** $totalCards
+            
+            **🎭 By Rarity:**
+            ${cardsByRarity.entries.joinToString("\n") { "• ${it.key.name}: ${it.value}" }}
+            
+            **🏆 Top Collectors:**
+            ${
+                        topOwners.mapIndexed { idx, (userId, count) -> "${idx + 1}. <@$userId>: $count cards" }
+                            .joinToString("\n")
+                    }
+        """.trimIndent()
+                )
             }
 
             // NEW: Toggle test mode
@@ -362,7 +384,11 @@ private suspend fun handleImageUpload(
             // Use TestCardService
             loadingMsg.edit { content = "🎲 Smart analysis (Test Mode)..." }
             logger.info { "🎲 USING TEST SERVICE..." }
-            testCardService.createSmartCard(imageAttachment.filename, imageAttachment.url, message.author!!.id.toString())
+            testCardService.createSmartCard(
+                imageAttachment.filename,
+                imageAttachment.url,
+                message.author!!.id.toString()
+            )
         } else {
             // Use OpenAI
             loadingMsg.edit { content = "🤖 AI analyzing image..." }

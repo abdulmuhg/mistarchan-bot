@@ -211,12 +211,15 @@ class Battle(
                 playerAMove.position == BattlePosition.ATTACK && playerBMove.position == BattlePosition.ATTACK -> {
                     appendLine("⚔️ *Attack vs Attack: ${playerACard.attack} vs ${playerBCard.attack}*")
                 }
+
                 playerAMove.position == BattlePosition.ATTACK && playerBMove.position == BattlePosition.DEFENSE -> {
                     appendLine("⚔️🛡️ *Attack vs Defense: ${playerACard.attack} vs ${playerBCard.defense}*")
                 }
+
                 playerAMove.position == BattlePosition.DEFENSE && playerBMove.position == BattlePosition.ATTACK -> {
                     appendLine("🛡️⚔️ *Defense vs Attack: ${playerACard.defense} vs ${playerBCard.attack}*")
                 }
+
                 else -> {
                     appendLine("🛡️🛡️ *Defense vs Defense: Always a tie*")
                 }
@@ -243,6 +246,7 @@ class Battle(
                     else -> null // Actual tie
                 }
             }
+
             else -> null // Battle continues
         }
 
@@ -289,13 +293,16 @@ class Battle(
             BattleState.WAITING_FOR_PLAYERS -> {
                 appendLine("⏳ **Waiting for moves from both players**")
             }
+
             BattleState.ROUND_IN_PROGRESS -> {
                 val waitingFor = if (hasPendingMove(playerAId)) "Player B" else "Player A"
                 appendLine("⏳ **Waiting for move from $waitingFor**")
             }
+
             BattleState.ROUND_COMPLETE -> {
                 appendLine("✅ **Round complete, preparing next round**")
             }
+
             BattleState.BATTLE_COMPLETE -> {
                 appendLine("🏁 **Battle Complete!**")
             }

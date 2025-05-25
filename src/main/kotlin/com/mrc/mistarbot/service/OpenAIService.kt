@@ -317,12 +317,14 @@ class OpenAIService(private val apiKey: String) {
             // EPIC upgrades
             aiSuggestedRarity == CardRarity.EPIC && finalRarity == CardRarity.RARE
                     && Random.nextFloat() < 0.25 -> CardRarity.EPIC
+
             aiSuggestedRarity == CardRarity.LEGENDARY && finalRarity == CardRarity.RARE
                     && Random.nextFloat() < 0.15 -> CardRarity.EPIC
 
             // RARE upgrades
             aiSuggestedRarity == CardRarity.RARE && finalRarity == CardRarity.UNCOMMON
                     && Random.nextFloat() < 0.3 -> CardRarity.RARE
+
             aiSuggestedRarity >= CardRarity.EPIC && finalRarity == CardRarity.UNCOMMON
                     && Random.nextFloat() < 0.2 -> CardRarity.RARE
 

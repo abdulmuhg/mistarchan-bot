@@ -23,6 +23,7 @@ object Cards : IntIdTable() {
 }
 
 object Database {
+
     fun init() {
         val dbFile = "cards.db"
 
@@ -32,9 +33,11 @@ object Database {
         )
 
         transaction {
-            SchemaUtils.drop(Cards)
-            SchemaUtils.create(Cards)
-            logger.info { "Database initialized with updated schema" }
+            SchemaUtils.createMissingTablesAndColumns(Cards)
+
+            // Get existing card count
+            val existingCards = Cards.selectAll().count()
+            logger.info { "✅ Database initialized - Found $existingCards existing cards" }
         }
     }
 
@@ -51,6 +54,14 @@ object Database {
         } get Cards.id
 
         card.copy(id = id.value)
+    }
+
+    fun resetDatabase(): Int = transaction {
+        val deletedCount = Cards.selectAll().count()
+        SchemaUtils.drop(Cards)
+        SchemaUtils.create(Cards)
+        logger.warn { "🗑️ Database reset! Deleted $deletedCount cards" }
+        deletedCount.toInt()
     }
 
     fun getCardsByOwner(ownerId: String): List<Card> = transaction {
